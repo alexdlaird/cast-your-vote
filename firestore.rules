@@ -15,9 +15,9 @@ service cloud.firestore {
       return event.data.status == 'open';
     }
 
-    // Config collection - admins can read to verify whitelist
+    // Config collection - public read for admin whitelist check before auth
     match /config/{document} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false; // Manage via Firebase Console only
     }
 

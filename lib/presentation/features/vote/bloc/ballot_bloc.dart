@@ -6,7 +6,6 @@ import 'package:theatre_121/data/models/models.dart';
 import 'package:theatre_121/domain/repositories/ballot_repository.dart';
 import 'package:theatre_121/domain/repositories/event_repository.dart';
 
-// Events
 abstract class BallotEvent extends Equatable {
   const BallotEvent();
 
@@ -51,7 +50,6 @@ class ClearBallot extends BallotEvent {
   const ClearBallot();
 }
 
-// States
 abstract class BallotState extends Equatable {
   const BallotState();
 
@@ -107,7 +105,6 @@ class BallotAlreadySubmitted extends BallotState {
   const BallotAlreadySubmitted();
 }
 
-// Bloc
 class BallotBloc extends Bloc<BallotEvent, BallotState> {
   final BallotRepository _ballotRepository;
   final EventRepository _eventRepository;
@@ -135,7 +132,6 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
   }
 
   void _onPersistError(_PersistError event, Emitter<BallotState> emit) {
-    // Just show a snackbar error, don't disrupt UI
     emit(BallotError(event.message));
   }
 
@@ -150,7 +146,6 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
   /// If state changed during write, writes again.
   Future<void> _executePersist() async {
     if (_isWriting) {
-      // Already writing - reschedule to catch any changes
       _schedulePersist();
       return;
     }
@@ -172,10 +167,9 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
     } finally {
       _isWriting = false;
 
-      // Check if state changed while we were writing
+      // Check if state changed while we were writing, rewrite if so
       final newState = state;
       if (newState is BallotLoaded && newState.ballot != ballotToWrite) {
-        // State changed during write - write again
         _schedulePersist();
       }
     }

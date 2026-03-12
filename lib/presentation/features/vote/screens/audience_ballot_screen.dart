@@ -64,11 +64,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     final currentRank = currentVotes[participant.id];
 
     if (currentRank != null) {
-      // Already has a rank - do nothing on tap
       return;
     }
 
-    // Find the next available rank
     final usedRanks = currentVotes.values.toSet();
     int rank = 1;
     while (usedRanks.contains(rank) && rank <= participantCount) {
@@ -102,7 +100,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
             UpdateAudienceVote(participantId: participantId, rank: rank),
           );
     } else {
-      // Invalid value - clear the field
       _controllers[participantId]?.clear();
       context.read<BallotBloc>().add(
             UpdateAudienceVote(participantId: participantId, rank: null),
@@ -216,7 +213,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     final votes = state.ballot.audienceVotes;
     final canSubmit = _canSubmit(votes, participants.length);
 
-    // Update controllers with current votes
     for (final participant in participants) {
       final rank = votes[participant.id];
       final controller = _getController(participant.id, rank);
@@ -435,7 +431,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
                     context.read<BallotBloc>().add(const ClearBallot());
-                    // Clear local text controllers
                     for (final controller in _controllers.values) {
                       controller.text = '';
                     }

@@ -189,131 +189,166 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       title: "Judge Ballot for '${state.event.name}'",
       body: Column(
         children: [
-          // Progress indicator
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Participant ${_currentParticipantIndex + 1} of ${participants.length}',
-                      style: context.textTheme.bodySmall,
-                    ),
-                    Text(
-                      '${votes.values.where(_isVoteComplete).length}/${participants.length} scored',
-                      style: context.textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: (_currentParticipantIndex + 1) / participants.length,
-                  backgroundColor: context.colorScheme.surfaceContainerHighest,
-                ),
-              ],
-            ),
-          ),
-          // Participant pages
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() => _currentParticipantIndex = index);
-              },
-              itemCount: participants.length,
-              itemBuilder: (context, index) {
-                final participant = participants[index];
-                final vote = votes[participant.id] ??
-                    const JudgeVote(
-                      singing: 0,
-                      performance: 0,
-                      audienceParticipation: 0,
-                    );
-                return _buildParticipantPage(
-                  context,
-                  participant,
-                  vote,
-                  index,
-                  participants.length,
-                );
-              },
-            ),
-          ),
-          // Navigation & Submit
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // Navigation dots
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: List.generate(
-                    participants.length,
-                    (index) {
-                      final vote = votes[participants[index].id];
-                      Color dotColor;
-                      if (index == _currentParticipantIndex) {
-                        dotColor = context.colorScheme.primary;
-                      } else if (vote != null && _isVoteComplete(vote)) {
-                        dotColor = context.colorScheme.primaryContainer;
-                      } else if (vote != null && _isVotePartial(vote)) {
-                        dotColor = context.colorScheme.tertiaryContainer;
-                      } else {
-                        dotColor = context.colorScheme.surfaceContainerHighest;
-                      }
-                      return GestureDetector(
-                        onTap: () => _goToParticipant(index),
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: dotColor,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: isLastParticipant
-                      ? (canSubmit && !state.isSubmitting
-                          ? () => context
-                              .read<BallotBloc>()
-                              .add(const SubmitBallot())
-                          : null)
-                      : () => _onVoteAndNext(context, participants, votes),
-                  child: state.isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
-                          isLastParticipant
-                              ? (canSubmit
-                                  ? 'Submit All Votes'
-                                  : 'Score All Participants')
-                              : 'Next',
-                        ),
-                ),
-                if (_currentParticipantIndex > 0) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: () =>
-                        _goToParticipant(_currentParticipantIndex - 1),
-                    child: const Text('Previous'),
-                  ),
-                ],
-              ],
-            ),
+          _buildProgressIndicator(context, participants.length, votes),
+          _buildParticipantPages(participants, votes),
+          _buildNavigationControls(
+            context,
+            state,
+            participants,
+            votes,
+            canSubmit,
+            isLastParticipant,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator(
+    BuildContext context,
+    int participantCount,
+    Map<String, JudgeVote> votes,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Participant ${_currentParticipantIndex + 1} of $participantCount',
+                style: context.textTheme.bodySmall,
+              ),
+              Text(
+                '${votes.values.where(_isVoteComplete).length}/$participantCount scored',
+                style: context.textTheme.bodySmall,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: (_currentParticipantIndex + 1) / participantCount,
+            backgroundColor: context.colorScheme.surfaceContainerHighest,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParticipantPages(
+    List<ParticipantModel> participants,
+    Map<String, JudgeVote> votes,
+  ) {
+    return Expanded(
+      child: PageView.builder(
+        controller: _pageController,
+        onPageChanged: (index) {
+          setState(() => _currentParticipantIndex = index);
+        },
+        itemCount: participants.length,
+        itemBuilder: (context, index) {
+          final participant = participants[index];
+          final vote = votes[participant.id] ??
+              const JudgeVote(
+                singing: 0,
+                performance: 0,
+                audienceParticipation: 0,
+              );
+          return _buildParticipantPage(
+            context,
+            participant,
+            vote,
+            index,
+            participants.length,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNavigationControls(
+    BuildContext context,
+    BallotLoaded state,
+    List<ParticipantModel> participants,
+    Map<String, JudgeVote> votes,
+    bool canSubmit,
+    bool isLastParticipant,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _buildNavigationDots(context, participants, votes),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: isLastParticipant
+                ? (canSubmit && !state.isSubmitting
+                    ? () =>
+                        context.read<BallotBloc>().add(const SubmitBallot())
+                    : null)
+                : () => _onVoteAndNext(context, participants, votes),
+            child: state.isSubmitting
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    isLastParticipant
+                        ? (canSubmit
+                            ? 'Submit All Votes'
+                            : 'Score All Participants')
+                        : 'Next',
+                  ),
+          ),
+          if (_currentParticipantIndex > 0) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => _goToParticipant(_currentParticipantIndex - 1),
+              child: const Text('Previous'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavigationDots(
+    BuildContext context,
+    List<ParticipantModel> participants,
+    Map<String, JudgeVote> votes,
+  ) {
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 12,
+      runSpacing: 12,
+      children: List.generate(
+        participants.length,
+        (index) {
+          final vote = votes[participants[index].id];
+          Color dotColor;
+          if (index == _currentParticipantIndex) {
+            dotColor = context.colorScheme.primary;
+          } else if (vote != null && _isVoteComplete(vote)) {
+            dotColor = context.colorScheme.primaryContainer;
+          } else if (vote != null && _isVotePartial(vote)) {
+            dotColor = context.colorScheme.tertiaryContainer;
+          } else {
+            dotColor = context.colorScheme.surfaceContainerHighest;
+          }
+          return GestureDetector(
+            onTap: () => _goToParticipant(index),
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: dotColor,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

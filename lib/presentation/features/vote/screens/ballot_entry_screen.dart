@@ -131,7 +131,6 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
                           return 'Enter a valid ballot code';
                         }
                         final code = value.trim().toUpperCase();
-                        // Valid formats: 6 alphanumeric OR J- + 6 alphanumeric
                         if (RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
                           return null;
                         }

@@ -6,7 +6,6 @@ import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
 import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:theatre_121/config/app_routes.dart';
 
-/// View widget used by the router (bloc provided by ShellRoute)
 class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({super.key});
 
@@ -39,9 +38,8 @@ class AdminDashboardView extends StatelessWidget {
       ),
       body: BlocConsumer<AdminBloc, AdminState>(
         listenWhen: (previous, current) {
-          // Listen for errors
           if (current is AdminError) return true;
-          // Listen for voting close completion
+
           if (previous is AdminLoaded &&
               previous.isClosingVoting &&
               current is AdminLoaded &&

@@ -52,8 +52,8 @@ class BallotModel extends Equatable {
   final BallotType type;
   final String eventId;
   final bool submitted;
-  final Map<String, int> audienceVotes; // participantId -> rank (1-X)
-  final Map<String, JudgeVote> judgeVotes; // participantId -> JudgeVote
+  final Map<String, int> audienceVotes;
+  final Map<String, JudgeVote> judgeVotes;
   final DateTime createdAt;
   final DateTime? submittedAt;
 
@@ -74,7 +74,7 @@ class BallotModel extends Equatable {
       code: code,
       type: type,
       eventId: json['eventId'] as String,
-      submitted: json['submitted'] as bool? ?? false,
+      submitted: json['submitted'] as bool,
       audienceVotes: (json['audienceVotes'] as Map<String, dynamic>?)
               ?.map((k, v) => MapEntry(k, v as int)) ??
           {},

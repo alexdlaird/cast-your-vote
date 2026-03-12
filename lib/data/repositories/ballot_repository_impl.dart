@@ -116,7 +116,7 @@ class BallotRepositoryImpl implements BallotRepository {
       ));
     }
 
-    // Write in batches of 500 (Firestore limit)
+    // Batch writes so we don't go over Firestore's limits
     for (var i = 0; i < allBallots.length; i += 500) {
       final batch = _firestore.batch();
       final end = (i + 500 < allBallots.length) ? i + 500 : allBallots.length;

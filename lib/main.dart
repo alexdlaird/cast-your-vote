@@ -9,11 +9,12 @@ void main() async {
   usePathUrlStrategy();
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Suppress Flutter web hot restart "disposed view" errors
+  // Ignore this known Flutter web hot restart bug, which doesn't play nice
+  // with Firestore's event listeners
   FlutterError.onError = (details) {
     final message = details.exception.toString();
     if (message.contains('disposed EngineFlutterView')) {
-      return; // Ignore this known Flutter web hot restart bug
+      return;
     }
     FlutterError.presentError(details);
   };
@@ -31,7 +32,7 @@ class ComeOutSinginApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: "Theatre 121",
+      title: 'Theatre 121',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

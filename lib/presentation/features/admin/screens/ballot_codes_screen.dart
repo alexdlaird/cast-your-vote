@@ -10,20 +10,19 @@ import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:theatre_121/data/models/models.dart';
 
 String _buildBallotUrl(String code) {
-  if (kIsWeb) {
-    final base = Uri.base;
-    return '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}/vote?ballot=$code';
+  if (!kIsWeb) {
+    throw UnsupportedError('This app only supports web');
   }
-  // Fallback for non-web (shouldn't happen for this app)
-  return 'https://comeout.theatre121.org/vote?ballot=$code';
+  final base = Uri.base;
+  return '${base.scheme}://${base.host}${base.hasPort ? ':${base.port}' : ''}/vote?ballot=$code';
 }
 
 String _getBaseHost() {
-  if (kIsWeb) {
-    final base = Uri.base;
-    return '${base.host}${base.hasPort ? ':${base.port}' : ''}/vote';
+  if (!kIsWeb) {
+    throw UnsupportedError('This app only supports web');
   }
-  return 'comeout.theatre121.org/vote';
+  final base = Uri.base;
+  return '${base.host}${base.hasPort ? ':${base.port}' : ''}/vote';
 }
 
 class BallotCodesScreen extends StatelessWidget {

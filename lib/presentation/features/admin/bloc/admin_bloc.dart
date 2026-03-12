@@ -7,7 +7,6 @@ import 'package:theatre_121/data/models/models.dart';
 import 'package:theatre_121/domain/repositories/event_repository.dart';
 import 'package:theatre_121/domain/repositories/ballot_repository.dart';
 
-// Events
 abstract class AdminEvent extends Equatable {
   const AdminEvent();
 
@@ -59,7 +58,6 @@ class CloseVoting extends AdminEvent {
   const CloseVoting();
 }
 
-// States
 abstract class AdminState extends Equatable {
   const AdminState();
 
@@ -124,7 +122,6 @@ class AdminError extends AdminState {
   List<Object?> get props => [message];
 }
 
-// Bloc
 class AdminBloc extends Bloc<AdminEvent, AdminState> {
   final EventRepository _eventRepository;
   final BallotRepository _ballotRepository;
@@ -214,7 +211,6 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     }
 
     try {
-      // Create participants with IDs and order
       final participants = event.participantNames.asMap().entries.map((entry) {
         return ParticipantModel(
           id: 'p${entry.key + 1}',
@@ -223,7 +219,6 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         );
       }).toList();
 
-      // Create the event
       final newEvent = await _eventRepository.createEvent(
         EventModel(
           id: '',
@@ -234,7 +229,6 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         ),
       );
 
-      // Create ballots and get them back
       final ballots = await _ballotRepository.createBallotsAndReturn(
         eventId: newEvent.id,
         audienceCount: event.audienceBallotCount,

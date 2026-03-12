@@ -169,6 +169,78 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         );
   }
 
+  Widget _buildParticipantsList() {
+    return ReorderableListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      itemCount: _participantControllers.length,
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          final adjustedIndex =
+              newIndex > oldIndex ? newIndex - 1 : newIndex;
+          final controller = _participantControllers.removeAt(oldIndex);
+          _participantControllers.insert(adjustedIndex, controller);
+        });
+      },
+      itemBuilder: (context, index) => _buildParticipantRow(context, index),
+    );
+  }
+
+  Widget _buildParticipantRow(BuildContext context, int index) {
+    return Padding(
+      key: ValueKey(index),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          MouseRegion(
+            cursor: SystemMouseCursors.grab,
+            child: ReorderableDragStartListener(
+              index: index,
+              child: Icon(
+                Icons.drag_handle,
+                color: context.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: context.colorScheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                '${index + 1}',
+                style: context.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextFormField(
+              controller: _participantControllers[index],
+              decoration: InputDecoration(
+                hintText: 'Participant ${index + 1} name',
+                isDense: true,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => _removeParticipantField(index),
+            icon: const Icon(Icons.delete_outline),
+            color: context.colorScheme.error,
+            tooltip: 'Remove participant',
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -275,72 +347,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ],
               ),
               const SizedBox(height: 8),
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                buildDefaultDragHandles: false,
-                itemCount: _participantControllers.length,
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    final adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
-                    final controller = _participantControllers.removeAt(oldIndex);
-                    _participantControllers.insert(adjustedIndex, controller);
-                  });
-                },
-                itemBuilder: (context, index) {
-                  return Padding(
-                    key: ValueKey(index),
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        MouseRegion(
-                          cursor: SystemMouseCursors.grab,
-                          child: ReorderableDragStartListener(
-                            index: index,
-                            child: Icon(
-                              Icons.drag_handle,
-                              color: context.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: context.colorScheme.primaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: context.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _participantControllers[index],
-                            decoration: InputDecoration(
-                              hintText: 'Participant ${index + 1} name',
-                              isDense: true,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => _removeParticipantField(index),
-                          icon: const Icon(Icons.delete_outline),
-                          color: context.colorScheme.error,
-                          tooltip: 'Remove participant',
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              _buildParticipantsList(),
               const SizedBox(height: 32),
               BlocBuilder<AdminBloc, AdminState>(
                 builder: (context, state) {

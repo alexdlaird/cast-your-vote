@@ -79,9 +79,14 @@ class AppRouter {
               if (adminState is AdminLoaded && adminState.currentEvent != null) {
                 hasExistingEvent = true;
                 previousEventName = adminState.currentEvent!.name;
+
+                // Filter out eliminated participant if there's a clear elimination (no tie)
+                final eliminatedId = adminState.votingResults?.eliminatedParticipantId;
                 previousParticipants = adminState.currentEvent!.participants
+                    .where((p) => eliminatedId == null || p.id != eliminatedId)
                     .map((p) => p.name)
                     .toList();
+
                 previousJudges = adminState.currentEvent!.judges;
                 previousAudienceCount = adminState.audienceBallotCount;
               }

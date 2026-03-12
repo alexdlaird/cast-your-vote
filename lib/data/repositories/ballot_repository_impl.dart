@@ -151,7 +151,8 @@ class BallotRepositoryImpl implements BallotRepository {
 
     return snapshot.docs
         .map((doc) => BallotModel.fromJson(doc.data(), doc.id))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.code.compareTo(b.code));
   }
 
   @override
@@ -163,7 +164,8 @@ class BallotRepositoryImpl implements BallotRepository {
 
     return snapshot.docs
         .map((doc) => BallotModel.fromJson(doc.data(), doc.id))
-        .toList();
+        .toList()
+      ..sort((a, b) => a.code.compareTo(b.code));
   }
 
   @override
@@ -192,8 +194,12 @@ class BallotRepositoryImpl implements BallotRepository {
     return _ballotsCollection
         .where('eventId', isEqualTo: eventId)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => BallotModel.fromJson(doc.data(), doc.id))
-            .toList());
+        .map((snapshot) {
+      final ballots = snapshot.docs
+          .map((doc) => BallotModel.fromJson(doc.data(), doc.id))
+          .toList()
+        ..sort((a, b) => a.code.compareTo(b.code));
+      return ballots;
+    });
   }
 }

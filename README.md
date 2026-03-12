@@ -22,5 +22,5 @@ The app auto-deploys to Firebase Hosting on commits to `main`.
 ## Admin Access
 
 Navigate to `/admin` to log in and manage events. Authentication uses Google OAuth, and only whitelisted users can
-access the admin area. The whitelist is managed in Firebase Console under the Firestore `/config` document's
-`adminEmails` array.
+access the admin area. The whitelist is managed in Firebase Console under the Firestore `/config/admins` document's
+`emails` array.

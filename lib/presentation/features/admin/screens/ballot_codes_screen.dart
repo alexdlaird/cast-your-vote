@@ -42,8 +42,10 @@ class BallotCodesScreen extends StatelessWidget {
 
         final ballots = state.ballots;
 
-        final audienceBallots = ballots.where((b) => b.isAudience).toList();
-        final judgeBallots = ballots.where((b) => b.isJudge).toList();
+        final audienceBallots = ballots.where((b) => b.isAudience).toList()
+          ..sort((a, b) => a.code.compareTo(b.code));
+        final judgeBallots = ballots.where((b) => b.isJudge).toList()
+          ..sort((a, b) => a.code.compareTo(b.code));
 
         return DefaultTabController(
           length: 2,

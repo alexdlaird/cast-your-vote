@@ -6,7 +6,7 @@ service cloud.firestore {
     // Helper: Check if user is an authenticated admin
     function isAdmin() {
       return request.auth != null &&
-        request.auth.token.email in get(/databases/$(database)/documents/config/settings).data.adminEmails;
+        request.auth.token.email in get(/databases/$(database)/documents/config/admins).data.emails;
     }
 
     // Helper: Check if the referenced event has voting open
@@ -46,14 +46,12 @@ service cloud.firestore {
         (
           resource.data.submitted == false &&
           isVotingOpen(resource.data.eventId) &&
-          // Can only update votes and submitted fields
-          request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['audienceVotes', 'judgeVotes', 'submitted', 'submittedAt']) &&
-          // Once submitted, cannot un-submit
-          (request.resource.data.submitted == false || request.resource.data.submitted == true) &&
-          // Cannot change eventId or type
+          // Cannot change immutable fields
           request.resource.data.eventId == resource.data.eventId &&
-          request.resource.data.type == resource.data.type
+          request.resource.data.type == resource.data.type &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          // Cannot un-submit once submitted
+          (resource.data.submitted == false || request.resource.data.submitted == true)
         );
     }
   }

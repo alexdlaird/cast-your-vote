@@ -16,13 +16,19 @@ class AdminLoginScreen extends StatefulWidget {
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _adminRepository = AdminRepository();
   bool _isLoading = false;
-  String? _error;
+
+  void _showErrorSnackbar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
+  }
 
   Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final googleSignIn = GoogleSignIn(
@@ -43,10 +49,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       final isAdmin = await _adminRepository.isAdmin(email);
       if (!isAdmin) {
         await googleSignIn.signOut();
-        setState(() {
-          _isLoading = false;
-          _error = 'You are not authorized as an admin.';
-        });
+        setState(() => _isLoading = false);
+        _showErrorSnackbar('You are not authorized as an admin.');
         return;
       }
 
@@ -62,10 +66,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         context.go(AppRoutes.admin);
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
+      setState(() => _isLoading = false);
+      _showErrorSnackbar('An error occurred while trying to log in.');
     }
   }
 
@@ -99,33 +101,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
-                  if (_error != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: context.colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: context.colorScheme.error,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: SelectableText(
-                              _error!,
-                              style: TextStyle(
-                                color: context.colorScheme.onErrorContainer,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
                   ElevatedButton.icon(
                     onPressed: _isLoading ? null : _signInWithGoogle,
                     icon: _isLoading

@@ -1,1 +1,17 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"theatre-121","configurations":{"web":"1:381810584800:web:d7a72ebff322015f633485"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "theatre-121",
+          "configurations": {
+            "web": "1:381810584800:web:d7a72ebff322015f633485"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

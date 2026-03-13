@@ -339,6 +339,11 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         currentState = currentState.copyWith(closingProgress: ClosingProgress.closingVoting);
         emit(currentState);
         await _eventRepository.closeVoting(eventData.id);
+
+        // Update local state immediately so UI shows "Voting Closed"
+        final closedEvent = eventData.copyWith(status: EventStatus.closed);
+        currentState = currentState.copyWith(currentEvent: closedEvent);
+        emit(currentState);
       }
 
       // Step 2: Export ballots to Google Sheets

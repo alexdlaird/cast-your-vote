@@ -31,7 +31,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final googleUser = await _authService.googleSignIn.signIn();
+      // Sign in and initialize auth client in one OAuth flow
+      final googleUser = await _authService.signInAndInitClient();
       if (googleUser == null) {
         setState(() => _isLoading = false);
         return;
@@ -41,6 +42,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       final isAdmin = await _adminRepository.isAdmin(email);
       if (!isAdmin) {
         await _authService.googleSignIn.signOut();
+        _authService.clearCache();
         setState(() => _isLoading = false);
         _showErrorSnackbar('You are not authorized as an admin.');
         return;
@@ -53,9 +55,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
       );
 
       await FirebaseAuth.instance.signInWithCredential(credential);
-
-      // Initialize and cache the auth client for Google Sheets operations
-      await _authService.initAuthClient();
 
       if (mounted) {
         context.go(AppRoutes.admin);

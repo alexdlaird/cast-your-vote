@@ -26,23 +26,28 @@ class GoogleAuthService {
   /// Whether an auth client is currently cached and available.
   bool get hasAuthClient => _cachedClient != null;
 
-  /// Initializes and caches the auth client after login.
-  /// Call this after successful Google sign-in to pre-authorize
-  /// all required scopes and cache the client for the session.
-  Future<void> initAuthClient() async {
-    final account = googleSignIn.currentUser;
+  /// Signs in the user and initializes the auth client in a single flow.
+  /// Returns the signed-in account, or null if sign-in was cancelled.
+  /// This requests all required scopes (email + drive.file) in one OAuth prompt.
+  Future<GoogleSignInAccount?> signInAndInitClient() async {
+    // Sign in and request all scopes in one flow
+    final account = await googleSignIn.signIn();
     if (account == null) {
-      throw StateError('No signed-in user. Call this after successful sign-in.');
+      return null;
     }
 
-    // Request the drive.file scope explicitly - this triggers OAuth consent on web
-    // and ensures we get an access token (not just an ID token from FedCM)
-    final hasScope = await googleSignIn.requestScopes([driveFileScope]);
-    if (!hasScope) {
-      throw StateError('Google Sheets access denied. Please grant permission to continue.');
+    // Get authentication - on web with FedCM, this might only have ID token
+    var auth = await account.authentication;
+
+    // If no access token, explicitly request scopes to get one
+    if (auth.accessToken == null) {
+      final hasScope = await googleSignIn.requestScopes([driveFileScope]);
+      if (!hasScope) {
+        throw StateError('Google Sheets access denied. Please grant permission to continue.');
+      }
+      auth = await account.authentication;
     }
 
-    final auth = await account.authentication;
     if (auth.accessToken == null) {
       throw StateError('Unable to get Google access token. Please sign out and sign back in.');
     }
@@ -59,10 +64,11 @@ class GoogleAuthService {
 
     _cachedClient = authenticatedClient(http.Client(), credentials);
     _log.info('Auth client initialized and cached');
+    return account;
   }
 
   /// Returns the cached auth client, or re-authenticates if needed.
-  /// Prefer calling [initAuthClient] at login to avoid mid-session prompts.
+  /// Uses the same unified OAuth flow as [signInAndInitClient].
   Future<AuthClient> getAuthClient() async {
     // Return cached client if available
     if (_cachedClient != null) {
@@ -71,10 +77,11 @@ class GoogleAuthService {
 
     _log.info('No cached auth client, re-authenticating...');
 
+    // Try silent sign-in first
     var account = googleSignIn.currentUser;
     account ??= await googleSignIn.signInSilently();
 
-    // If no account, sign in
+    // If no account, do full sign-in (same flow as initial login)
     if (account == null) {
       account = await googleSignIn.signIn();
       if (account == null) {
@@ -82,13 +89,18 @@ class GoogleAuthService {
       }
     }
 
-    // Request the drive.file scope explicitly
-    final hasScope = await googleSignIn.requestScopes([driveFileScope]);
-    if (!hasScope) {
-      throw StateError('Google Sheets access denied. Please grant permission to continue.');
+    // Get authentication - on web with FedCM, this might only have ID token
+    var auth = await account.authentication;
+
+    // If no access token, explicitly request scopes to get one
+    if (auth.accessToken == null) {
+      final hasScope = await googleSignIn.requestScopes([driveFileScope]);
+      if (!hasScope) {
+        throw StateError('Google Sheets access denied. Please grant permission to continue.');
+      }
+      auth = await account.authentication;
     }
 
-    final auth = await account.authentication;
     if (auth.accessToken == null) {
       throw StateError('Unable to get Google access token. Please sign out and sign back in.');
     }

@@ -97,12 +97,11 @@ class AdminDashboardView extends StatelessWidget {
   bool _shouldListen(AdminState previous, AdminState current) {
     if (current is AdminError) return true;
 
-    // Show snackbar when spreadsheet is generated (only after actual export)
+    // Show snackbar when export/refetch completes successfully
     if (previous is AdminLoaded &&
         current is AdminLoaded &&
         previous.isClosingVoting &&
-        current.closingProgress == ClosingProgress.complete &&
-        current.votingResults != null) {
+        current.closingProgress == ClosingProgress.complete) {
       return true;
     }
     return false;
@@ -111,8 +110,12 @@ class AdminDashboardView extends StatelessWidget {
   void _onStateChanged(BuildContext context, AdminState state) {
     if (state is AdminError) {
       _showError(context, state.message);
-    } else if (state is AdminLoaded && state.votingResults != null) {
-      _showExportSuccess(context, state.votingResults!.spreadsheetUrl);
+    } else if (state is AdminLoaded &&
+        state.closingProgress == ClosingProgress.complete) {
+      final spreadsheetUrl = state.currentEvent?.spreadsheetUrl;
+      if (spreadsheetUrl != null) {
+        _showExportSuccess(context, spreadsheetUrl);
+      }
     }
   }
 
@@ -156,7 +159,7 @@ class AdminDashboardView extends StatelessWidget {
           _buildCurrentEventCard(context, event, state),
           const SizedBox(height: 16),
           if (state.votingResults != null) ...[
-            _buildVotingResultsCard(context, state.votingResults!),
+            _buildVotingResultsCard(context, state),
             const SizedBox(height: 16),
           ],
           _buildBallotStatsCard(context, state),
@@ -337,9 +340,11 @@ class AdminDashboardView extends StatelessWidget {
     );
   }
 
-  Widget _buildVotingResultsCard(BuildContext context, VotingResults results) {
+  Widget _buildVotingResultsCard(BuildContext context, AdminLoaded state) {
+    final results = state.votingResults!;
     final eliminated = results.eliminatedParticipant;
     final tiedParticipants = results.tiedParticipants;
+    final isRefetching = state.closingProgress == ClosingProgress.calculatingResults;
 
     return Card(
       child: Padding(
@@ -355,10 +360,16 @@ class AdminDashboardView extends StatelessWidget {
                 ),
                 const Spacer(),
                 IconButton(
-                  onPressed: () {
-                    context.read<AdminBloc>().add(const RefetchResults());
-                  },
-                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: state.isClosingVoting
+                      ? null
+                      : () => context.read<AdminBloc>().add(const RefetchResults()),
+                  icon: isRefetching
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 20),
                   tooltip: 'Refetch results',
                 ),
                 TextButton.icon(
@@ -540,6 +551,7 @@ class AdminDashboardView extends StatelessWidget {
 
   Widget _buildActionsCard(BuildContext context, AdminLoaded state) {
     final event = state.currentEvent;
+    final isVotingOpen = event?.isVotingOpen ?? true;
 
     return Card(
       child: Padding(
@@ -553,46 +565,29 @@ class AdminDashboardView extends StatelessWidget {
               label: const Text('View Ballot Codes'),
             ),
             const SizedBox(height: 12),
-            if (event?.isVotingOpen == true || state.isClosingVoting)
-              ElevatedButton.icon(
-                onPressed: state.isClosingVoting
-                    ? null
-                    : () => _confirmCloseVoting(context, event!),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: context.colorScheme.error,
-                  foregroundColor: context.colorScheme.onError,
-                ),
-                icon: state.isClosingVoting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.lock),
-                label: Text(state.isClosingVoting
-                    ? state.closingProgressText
-                    : 'Close Voting'),
-              )
-            else if (event?.isVotingOpen == false && event?.spreadsheetUrl == null)
-              ElevatedButton.icon(
-                onPressed: state.isClosingVoting
-                    ? null
-                    : () => context.read<AdminBloc>().add(const RetryExport()),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: context.colorScheme.error,
-                  foregroundColor: context.colorScheme.onError,
-                ),
-                icon: state.isClosingVoting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.upload),
-                label: Text(state.isClosingVoting
-                    ? state.closingProgressText
-                    : 'Re-Export Results'),
+            ElevatedButton.icon(
+              onPressed: state.isClosingVoting
+                  ? null
+                  : () => isVotingOpen
+                      ? _confirmCloseVoting(context, event!)
+                      : context.read<AdminBloc>().add(const CloseVoting()),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: context.colorScheme.error,
+                foregroundColor: context.colorScheme.onError,
               ),
+              icon: state.isClosingVoting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(isVotingOpen ? Icons.lock : Icons.refresh),
+              label: Text(state.isClosingVoting
+                  ? state.closingProgressText
+                  : isVotingOpen
+                      ? 'Close Voting'
+                      : 'Re-Export Ballots'),
+            ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => _navigateToCreateEvent(context),

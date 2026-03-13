@@ -72,10 +72,6 @@ class RefetchResults extends AdminEvent {
   const RefetchResults();
 }
 
-class RetryExport extends AdminEvent {
-  const RetryExport();
-}
-
 class UpdateDonationWinner extends AdminEvent {
   final String? largestDonationWinnerId;
   final String? mostDonationsWinnerId;
@@ -117,15 +113,16 @@ class AdminLoaded extends AdminState {
   final List<BallotModel> ballots;
   final bool isCreatingEvent;
   final ClosingProgress closingProgress;
-  final VotingResults? votingResults;
 
   const AdminLoaded({
     this.currentEvent,
     this.ballots = const [],
     this.isCreatingEvent = false,
     this.closingProgress = ClosingProgress.none,
-    this.votingResults,
   });
+
+  // Get votingResults from currentEvent (persisted in Firestore)
+  VotingResults? get votingResults => currentEvent?.votingResults;
 
   bool get isClosingVoting => closingProgress != ClosingProgress.none &&
       closingProgress != ClosingProgress.complete;
@@ -144,7 +141,7 @@ class AdminLoaded extends AdminState {
       case ClosingProgress.exportingBallots:
         return 'Exporting ballots ...';
       case ClosingProgress.calculatingResults:
-        return 'Calculating results ...';
+        return 'Fetching results ...';
       case ClosingProgress.none:
       case ClosingProgress.complete:
         return '';
@@ -153,23 +150,20 @@ class AdminLoaded extends AdminState {
 
   @override
   List<Object?> get props =>
-      [currentEvent, ballots, isCreatingEvent, closingProgress, votingResults];
+      [currentEvent, ballots, isCreatingEvent, closingProgress];
 
   AdminLoaded copyWith({
     EventModel? currentEvent,
     List<BallotModel>? ballots,
     bool? isCreatingEvent,
     ClosingProgress? closingProgress,
-    VotingResults? votingResults,
     bool clearEvent = false,
-    bool clearResults = false,
   }) {
     return AdminLoaded(
       currentEvent: clearEvent ? null : (currentEvent ?? this.currentEvent),
       ballots: ballots ?? this.ballots,
       isCreatingEvent: isCreatingEvent ?? this.isCreatingEvent,
       closingProgress: closingProgress ?? this.closingProgress,
-      votingResults: clearResults ? null : (votingResults ?? this.votingResults),
     );
   }
 }
@@ -206,7 +200,6 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     on<_StreamError>(_onStreamError);
     on<CreateEvent>(_onCreateEvent);
     on<CloseVoting>(_onCloseVoting);
-    on<RetryExport>(_onRetryExport);
     on<RefetchResults>(_onRefetchResults);
     on<UpdateDonationWinner>(_onUpdateDonationWinner);
   }
@@ -272,15 +265,6 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       if (!const DeepCollectionEquality()
           .equals(currentState.ballots, event.ballots)) {
         emit(currentState.copyWith(ballots: event.ballots));
-
-        // Fetch results from spreadsheet if event is closed and has spreadsheet URL
-        final eventData = currentState.currentEvent;
-        if (eventData != null &&
-            !eventData.isVotingOpen &&
-            eventData.spreadsheetUrl != null &&
-            currentState.votingResults == null) {
-          add(const RefetchResults());
-        }
       }
     }
   }
@@ -338,63 +322,17 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
 
     final eventData = currentState.currentEvent!;
     final ballotData = currentState.ballots;
+    final isAlreadyClosed = !eventData.isVotingOpen;
 
     try {
-      // Step 1: Closing voting
-      currentState = currentState.copyWith(closingProgress: ClosingProgress.closingVoting);
-      emit(currentState);
-      await _eventRepository.closeVoting(eventData.id);
-
-      // Update event status to closed immediately
-      final closedEvent = eventData.copyWith(status: EventStatus.closed);
-      currentState = currentState.copyWith(currentEvent: closedEvent);
-
-      // Step 2: Exporting ballots
-      currentState = currentState.copyWith(closingProgress: ClosingProgress.exportingBallots);
-      emit(currentState);
-      final spreadsheetUrl = await _sheetsService.createResultsSpreadsheet(
-        event: eventData,
-        ballots: ballotData,
-      );
-      await _eventRepository.updateSpreadsheetUrl(eventData.id, spreadsheetUrl);
-
-      // Step 3: Fetching results from spreadsheet
-      currentState = currentState.copyWith(closingProgress: ClosingProgress.calculatingResults);
-      emit(currentState);
-      final results = await _fetchResults(
-        event: eventData,
-        spreadsheetUrl: spreadsheetUrl,
-      );
-
-      // Step 4: Complete
-      emit(currentState.copyWith(
-        closingProgress: ClosingProgress.complete,
-        votingResults: results,
-        currentEvent: eventData.copyWith(status: EventStatus.closed),
-      ));
-    } catch (e) {
-      // Reset progress and show error via snackbar (listener handles AdminError)
-      if (state is AdminLoaded) {
-        emit((state as AdminLoaded).copyWith(closingProgress: ClosingProgress.none));
+      // Step 1: Close voting (skip if already closed)
+      if (!isAlreadyClosed) {
+        currentState = currentState.copyWith(closingProgress: ClosingProgress.closingVoting);
+        emit(currentState);
+        await _eventRepository.closeVoting(eventData.id);
       }
-      emit(AdminError(e.toString()));
-    }
-  }
 
-  Future<void> _onRetryExport(
-    RetryExport event,
-    Emitter<AdminState> emit,
-  ) async {
-    var currentState = state;
-    if (currentState is! AdminLoaded || currentState.currentEvent == null) {
-      return;
-    }
-
-    final eventData = currentState.currentEvent!;
-    final ballotData = currentState.ballots;
-
-    try {
-      // Export ballots
+      // Step 2: Export ballots to Google Sheets
       currentState = currentState.copyWith(closingProgress: ClosingProgress.exportingBallots);
       emit(currentState);
       final spreadsheetUrl = await _sheetsService.createResultsSpreadsheet(
@@ -403,7 +341,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       );
       await _eventRepository.updateSpreadsheetUrl(eventData.id, spreadsheetUrl);
 
-      // Fetch results from spreadsheet
+      // Step 3: Fetch results from spreadsheet
       currentState = currentState.copyWith(closingProgress: ClosingProgress.calculatingResults);
       emit(currentState);
       final results = await _fetchResults(
@@ -411,10 +349,11 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         spreadsheetUrl: spreadsheetUrl,
       );
 
-      emit(currentState.copyWith(
-        closingProgress: ClosingProgress.complete,
-        votingResults: results,
-      ));
+      // Step 4: Save results to Firestore (stream will update UI)
+      await _eventRepository.updateVotingResults(eventData.id, results);
+
+      // Step 5: Complete
+      emit(currentState.copyWith(closingProgress: ClosingProgress.complete));
     } catch (e) {
       if (state is AdminLoaded) {
         emit((state as AdminLoaded).copyWith(closingProgress: ClosingProgress.none));
@@ -427,7 +366,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     RefetchResults event,
     Emitter<AdminState> emit,
   ) async {
-    final currentState = state;
+    var currentState = state;
     if (currentState is! AdminLoaded || currentState.currentEvent == null) {
       return;
     }
@@ -441,13 +380,24 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     }
 
     try {
+      // Show loading indicator
+      currentState = currentState.copyWith(closingProgress: ClosingProgress.calculatingResults);
+      emit(currentState);
+
+      // Fetch results from spreadsheet
       final results = await _fetchResults(
         event: eventData,
         spreadsheetUrl: spreadsheetUrl,
       );
 
-      emit(currentState.copyWith(votingResults: results));
+      // Save to Firestore (stream will update UI)
+      await _eventRepository.updateVotingResults(eventData.id, results);
+
+      emit(currentState.copyWith(closingProgress: ClosingProgress.complete));
     } catch (e) {
+      if (state is AdminLoaded) {
+        emit((state as AdminLoaded).copyWith(closingProgress: ClosingProgress.none));
+      }
       emit(AdminError(e.toString()));
     }
   }

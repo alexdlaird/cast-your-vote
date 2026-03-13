@@ -59,11 +59,10 @@ class AdminDashboardView extends StatelessWidget {
             );
           } else if (state is AdminLoaded && state.votingResults != null) {
             ScaffoldMessenger.of(context).clearSnackBars();
-            ScaffoldMessenger.of(context).showSnackBar(
+            final controller = ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text('Spreadsheet generated successfully'),
-                duration: const Duration(seconds: 4),
-                showCloseIcon: true,
+                content: const SelectableText('Spreadsheet generated successfully'),
+                duration: const Duration(seconds: 6),
                 action: SnackBarAction(
                   label: 'Open Sheet',
                   onPressed: () {
@@ -72,6 +71,12 @@ class AdminDashboardView extends StatelessWidget {
                 ),
               ),
             );
+            // SnackBar won't auto-close with an action, so close manually
+            Future.delayed(const Duration(seconds: 6), () {
+              try {
+                controller.close();
+              } catch (_) {}
+            });
           }
         },
         builder: (context, state) {

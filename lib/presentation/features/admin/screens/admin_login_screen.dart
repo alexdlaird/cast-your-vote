@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/data/repositories/admin_repository.dart';
 import 'package:theatre_121/config/app_routes.dart';
 import 'package:theatre_121/config/google_sign_in_config.dart';
@@ -19,12 +20,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: SelectableText(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
-      ),
-    );
+    SnackBarHelper.show(context, message, type: SnackType.error);
   }
 
   Future<void> _signInWithGoogle() async {

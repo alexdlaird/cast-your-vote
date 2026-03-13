@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:theatre_121/presentation/ui/layout/app_scaffold.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/config/app_routes.dart';
 import 'package:theatre_121/data/repositories/ballot_repository_impl.dart';
 
@@ -29,9 +30,7 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
     super.initState();
     if (widget.errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: SelectableText(widget.errorMessage!)),
-        );
+        SnackBarHelper.show(context, widget.errorMessage!, type: SnackType.error);
       });
     }
   }
@@ -56,8 +55,10 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
       if (!mounted) return;
 
       if (ballot == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: SelectableText('Not found—enter the code from your ballot slip')),
+        SnackBarHelper.show(
+          context,
+          'Not found—enter the code from your ballot slip',
+          type: SnackType.error,
         );
         setState(() => _isValidating = false);
         return;
@@ -66,9 +67,7 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
       context.go('${AppRoutes.vote}?ballot=$code');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: SelectableText('Error: $e')),
-      );
+      SnackBarHelper.show(context, 'Error: $e', type: SnackType.error);
       setState(() => _isValidating = false);
     }
   }

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:theatre_121/config/app_routes.dart';
 import 'package:theatre_121/data/models/models.dart';
@@ -39,46 +40,8 @@ class AdminDashboardView extends StatelessWidget {
         ],
       ),
       body: BlocConsumer<AdminBloc, AdminState>(
-        listenWhen: (previous, current) {
-          if (current is AdminError) return true;
-
-          // Show snackbar when spreadsheet is generated (only after actual export)
-          if (previous is AdminLoaded &&
-              current is AdminLoaded &&
-              previous.isClosingVoting &&
-              current.closingProgress == ClosingProgress.complete &&
-              current.votingResults != null) {
-            return true;
-          }
-          return false;
-        },
-        listener: (context, state) {
-          if (state is AdminError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: SelectableText(state.message)),
-            );
-          } else if (state is AdminLoaded && state.votingResults != null) {
-            ScaffoldMessenger.of(context).clearSnackBars();
-            final controller = ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const SelectableText('Spreadsheet generated successfully'),
-                duration: const Duration(seconds: 6),
-                action: SnackBarAction(
-                  label: 'Open Sheet',
-                  onPressed: () {
-                    launchUrl(Uri.parse(state.votingResults!.spreadsheetUrl));
-                  },
-                ),
-              ),
-            );
-            // SnackBar won't auto-close with an action, so close manually
-            Future.delayed(const Duration(seconds: 6), () {
-              try {
-                controller.close();
-              } catch (_) {}
-            });
-          }
-        },
+        listenWhen: _shouldListen,
+        listener: _onStateChanged,
         builder: (context, state) {
           if (state is AdminInitial || state is AdminLoading) {
             return const Center(child: CircularProgressIndicator());
@@ -127,6 +90,45 @@ class AdminDashboardView extends StatelessWidget {
 
           return const Center(child: Text('Something went wrong'));
         },
+      ),
+    );
+  }
+
+  bool _shouldListen(AdminState previous, AdminState current) {
+    if (current is AdminError) return true;
+
+    // Show snackbar when spreadsheet is generated (only after actual export)
+    if (previous is AdminLoaded &&
+        current is AdminLoaded &&
+        previous.isClosingVoting &&
+        current.closingProgress == ClosingProgress.complete &&
+        current.votingResults != null) {
+      return true;
+    }
+    return false;
+  }
+
+  void _onStateChanged(BuildContext context, AdminState state) {
+    if (state is AdminError) {
+      _showError(context, state.message);
+    } else if (state is AdminLoaded && state.votingResults != null) {
+      _showExportSuccess(context, state.votingResults!.spreadsheetUrl);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    SnackBarHelper.show(context, message, type: SnackType.error);
+  }
+
+  void _showExportSuccess(BuildContext context, String spreadsheetUrl) {
+    SnackBarHelper.show(
+      context,
+      'Spreadsheet generated successfully',
+      seconds: 6,
+      type: SnackType.success,
+      action: SnackBarAction(
+        label: 'Open Sheet',
+        onPressed: () => launchUrl(Uri.parse(spreadsheetUrl)),
       ),
     );
   }
@@ -709,12 +711,10 @@ class AdminDashboardView extends StatelessWidget {
     }
 
     if (errors.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: SelectableText(
-            'Need ${errors.join(" and ")} submitted before closing voting.',
-          ),
-        ),
+      SnackBarHelper.show(
+        context,
+        'Need ${errors.join(" and ")} submitted before closing voting.',
+        type: SnackType.error,
       );
       return;
     }
@@ -731,12 +731,10 @@ class AdminDashboardView extends StatelessWidget {
     }
 
     if (missingBonusPoints.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: SelectableText(
-            'Select ${missingBonusPoints.join(" and ")} before closing voting.',
-          ),
-        ),
+      SnackBarHelper.show(
+        context,
+        'Select ${missingBonusPoints.join(" and ")} before closing voting.',
+        type: SnackType.error,
       );
       return;
     }

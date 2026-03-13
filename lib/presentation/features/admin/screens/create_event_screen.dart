@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:theatre_121/config/app_routes.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -149,12 +150,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
 
     if (emptyJudgeIndices.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: SelectableText(
-            'Fill in all judge names (missing: ${emptyJudgeIndices.join(", ")})',
-          ),
-        ),
+      SnackBarHelper.show(
+        context,
+        'Fill in all judge names (missing: ${emptyJudgeIndices.join(", ")})',
+        type: SnackType.error,
       );
       return;
     }
@@ -168,12 +167,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
 
     if (emptyParticipantIndices.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: SelectableText(
-            'Fill in all participant names (missing: ${emptyParticipantIndices.join(", ")})',
-          ),
-        ),
+      SnackBarHelper.show(
+        context,
+        'Fill in all participant names (missing: ${emptyParticipantIndices.join(", ")})',
+        type: SnackType.error,
       );
       return;
     }

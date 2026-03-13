@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:theatre_121/presentation/ui/layout/app_scaffold.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/presentation/features/vote/bloc/ballot_bloc.dart';
 import 'package:theatre_121/data/models/models.dart';
 import 'package:theatre_121/data/repositories/ballot_repository_impl.dart';
@@ -120,11 +121,10 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<BallotBloc, BallotState>(
+      listenWhen: (_, current) => current is BallotError,
       listener: (context, state) {
         if (state is BallotError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: SelectableText(state.message)),
-          );
+          SnackBarHelper.show(context, state.message, type: SnackType.error);
         }
       },
       builder: (context, state) {

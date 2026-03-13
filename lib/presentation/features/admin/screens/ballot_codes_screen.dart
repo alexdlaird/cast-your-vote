@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:theatre_121/config/app_routes.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:theatre_121/data/models/models.dart';
 import 'package:theatre_121/data/services/pdf_export_service_impl.dart';
@@ -57,9 +58,7 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: SelectableText('Export failed: $e')),
-        );
+        SnackBarHelper.show(context, 'Export failed: $e', type: SnackType.error);
       }
     } finally {
       if (mounted) {
@@ -259,9 +258,7 @@ class _BallotCodeCard extends StatelessWidget {
                 icon: const Icon(Icons.copy),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: ballot.code));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: SelectableText('Code copied to clipboard')),
-                  );
+                  SnackBarHelper.show(context, 'Code copied to clipboard');
                 },
               ),
           ],

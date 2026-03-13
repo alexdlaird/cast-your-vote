@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 
 enum SnackType {
-  success,
   info,
   error;
 
   Color? backgroundColor(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     return switch (this) {
-      SnackType.success => null, // Use default
-      SnackType.info => null,    // Use default
-      SnackType.error => colorScheme.error,
+      SnackType.info => null,
+      SnackType.error => Theme.of(context).colorScheme.error,
     };
   }
 }

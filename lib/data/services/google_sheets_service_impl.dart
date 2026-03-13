@@ -222,9 +222,9 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         results.add(ParticipantResult(
           id: 'p${i + 1}',
           name: row[0].toString(),
-          audiencePoints: row.length > 1 ? int.tryParse(row[1].toString()) ?? 0 : 0,
-          judgeTotal: row.length > 2 ? int.tryParse(row[2].toString()) ?? 0 : 0,
-          combinedScore: row.length > 3 ? int.tryParse(row[3].toString()) ?? 0 : 0,
+          audienceTotal: row.length > 1 ? int.tryParse(row[1].toString())! : 0,
+          judgeTotal: row.length > 2 ? int.tryParse(row[2].toString())! : 0,
+          combinedScore: row.length > 3 ? int.tryParse(row[3].toString())! : 0,
         ));
       }
 

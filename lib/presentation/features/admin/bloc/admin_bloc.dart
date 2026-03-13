@@ -447,7 +447,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       return ParticipantResult(
         id: participant.id,
         name: result.name,
-        audiencePoints: result.audiencePoints,
+        audienceTotal: result.audienceTotal,
         judgeTotal: result.judgeTotal,
         combinedScore: result.combinedScore,
       );

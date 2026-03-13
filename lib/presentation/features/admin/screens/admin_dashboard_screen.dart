@@ -130,7 +130,7 @@ class AdminDashboardView extends StatelessWidget {
       context,
       'Spreadsheet generated successfully',
       seconds: 6,
-      type: SnackType.success,
+      type: SnackType.info,
       action: SnackBarAction(
         label: 'Open Sheet',
         onPressed: () => launchUrl(Uri.parse(spreadsheetUrl)),
@@ -518,7 +518,7 @@ class AdminDashboardView extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'A: ${result.audiencePoints}',
+                      'A: ${result.audienceTotal}',
                       style: context.textTheme.bodySmall?.copyWith(
                         color: context.colorScheme.onSurfaceVariant,
                       ),

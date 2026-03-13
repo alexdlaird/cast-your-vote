@@ -133,7 +133,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
       // Build summary sheet
       final summaryRows = <List<Object?>>[];
-      summaryRows.add(['Participant', 'Audience Points', 'Judge Total', 'Combined']);
+      summaryRows.add(['Participant', 'Audience Total', 'Judge Total', 'Combined']);
       for (var i = 0; i < participants.length; i++) {
         final participant = participants[i];
         final col = _columnLetter(i + 2); // B, C, D, etc.

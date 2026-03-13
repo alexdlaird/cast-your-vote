@@ -419,7 +419,7 @@ class AdminDashboardView extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${tiedParticipants.first.combinedScore} pts each',
+                      'Score: ${tiedParticipants.first.combinedScore}',
                       style: context.textTheme.bodyMedium?.copyWith(
                         color: Colors.orange.shade700,
                       ),
@@ -461,7 +461,7 @@ class AdminDashboardView extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '${eliminated.combinedScore} pts',
+                      'Score: ${eliminated.combinedScore}',
                       style: context.textTheme.titleMedium?.copyWith(
                         color: Colors.red.shade700,
                       ),

@@ -365,7 +365,7 @@ class AdminDashboardView extends StatelessWidget {
                   onPressed: state.isClosingVoting
                       ? null
                       : () => context.read<AdminBloc>().add(const RefetchResults()),
-                  icon: isRefetching
+                  icon: isRefetching || state.isClosingVoting
                       ? const SizedBox(
                           height: 20,
                           width: 20,

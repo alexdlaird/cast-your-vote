@@ -23,12 +23,8 @@ class GoogleAuthService {
 
   AuthClient? _cachedClient;
 
-  /// Whether an auth client is currently cached and available.
   bool get hasAuthClient => _cachedClient != null;
 
-  /// Signs in the user and initializes the auth client in a single flow.
-  /// Returns the signed-in account, or null if sign-in was cancelled.
-  /// This requests all required scopes (email + drive.file) in one OAuth prompt.
   Future<GoogleSignInAccount?> signInAndInitClient() async {
     // Sign in and request all scopes in one flow
     final account = await googleSignIn.signIn();
@@ -36,10 +32,8 @@ class GoogleAuthService {
       return null;
     }
 
-    // Get authentication - on web with FedCM, this might only have ID token
     var auth = await account.authentication;
 
-    // If no access token, explicitly request scopes to get one
     if (auth.accessToken == null) {
       final hasScope = await googleSignIn.requestScopes([driveFileScope]);
       if (!hasScope) {
@@ -89,7 +83,6 @@ class GoogleAuthService {
       }
     }
 
-    // Get authentication - on web with FedCM, this might only have ID token
     var auth = await account.authentication;
 
     // If no access token, explicitly request scopes to get one

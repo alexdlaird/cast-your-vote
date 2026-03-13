@@ -15,13 +15,14 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     final sheetsApi = sheets.SheetsApi(client);
 
     // Create the spreadsheet
-    final now = DateTime.now();
-    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final eventDate = event.createdAt;
+    final dateStr = '${eventDate.year}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}';
+    final shortCode = _generateShortCode(event.id);
 
     final spreadsheet = await sheetsApi.spreadsheets.create(
       sheets.Spreadsheet(
         properties: sheets.SpreadsheetProperties(
-          title: '${event.name} - Voting Results - $dateStr',
+          title: '${event.name} - $dateStr - $shortCode - Voting Results',
         ),
         sheets: [
           sheets.Sheet(
@@ -147,6 +148,16 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       col ~/= 26;
     }
     return result;
+  }
+
+  /// Generates a deterministic 3-character alphanumeric code from an event ID.
+  String _generateShortCode(String eventId) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes I, O, 0, 1 for clarity
+    final hash = eventId.hashCode.abs();
+    final c1 = chars[(hash >> 0) % chars.length];
+    final c2 = chars[(hash >> 5) % chars.length];
+    final c3 = chars[(hash >> 10) % chars.length];
+    return '$c1$c2$c3';
   }
 
   @override

@@ -376,7 +376,8 @@ class AdminDashboardView extends StatelessWidget {
                 ),
                 TextButton.icon(
                   onPressed: () {
-                    launchUrl(Uri.parse(results.spreadsheetUrl));
+                    final url = state.currentEvent?.spreadsheetUrl;
+                    if (url != null) launchUrl(Uri.parse(url));
                   },
                   icon: const Icon(Icons.open_in_new, size: 16),
                   label: const Text('Open Sheet'),

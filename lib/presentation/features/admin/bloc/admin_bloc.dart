@@ -474,7 +474,6 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       rankings: rankings,
       eliminatedParticipantId: eliminatedId,
       tiedParticipantIds: tiedIds,
-      spreadsheetUrl: spreadsheetUrl,
     );
   }
 

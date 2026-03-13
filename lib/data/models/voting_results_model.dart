@@ -3,14 +3,14 @@ import 'package:equatable/equatable.dart';
 class ParticipantResult extends Equatable {
   final String id;
   final String name;
-  final int audiencePoints;
+  final int audienceTotal;
   final int judgeTotal;
   final int combinedScore;
 
   const ParticipantResult({
     required this.id,
     required this.name,
-    required this.audiencePoints,
+    required this.audienceTotal,
     required this.judgeTotal,
     required this.combinedScore,
   });
@@ -19,7 +19,7 @@ class ParticipantResult extends Equatable {
     return ParticipantResult(
       id: json['id'] as String,
       name: json['name'] as String,
-      audiencePoints: json['audiencePoints'] as int,
+      audienceTotal: json['audienceTotal'] as int,
       judgeTotal: json['judgeTotal'] as int,
       combinedScore: json['combinedScore'] as int,
     );
@@ -29,27 +29,25 @@ class ParticipantResult extends Equatable {
     return {
       'id': id,
       'name': name,
-      'audiencePoints': audiencePoints,
+      'audienceTotal': audienceTotal,
       'judgeTotal': judgeTotal,
       'combinedScore': combinedScore,
     };
   }
 
   @override
-  List<Object?> get props => [id, name, audiencePoints, judgeTotal, combinedScore];
+  List<Object?> get props => [id, name, audienceTotal, judgeTotal, combinedScore];
 }
 
 class VotingResults extends Equatable {
   final List<ParticipantResult> rankings;
   final String? eliminatedParticipantId;
   final List<String> tiedParticipantIds;
-  final String spreadsheetUrl;
 
   const VotingResults({
     required this.rankings,
     this.eliminatedParticipantId,
     this.tiedParticipantIds = const [],
-    required this.spreadsheetUrl,
   });
 
   factory VotingResults.fromJson(Map<String, dynamic> json) {
@@ -62,7 +60,6 @@ class VotingResults extends Equatable {
               ?.map((id) => id as String)
               .toList() ??
           const [],
-      spreadsheetUrl: json['spreadsheetUrl'] as String,
     );
   }
 
@@ -71,7 +68,6 @@ class VotingResults extends Equatable {
       'rankings': rankings.map((r) => r.toJson()).toList(),
       'eliminatedParticipantId': eliminatedParticipantId,
       'tiedParticipantIds': tiedParticipantIds,
-      'spreadsheetUrl': spreadsheetUrl,
     };
   }
 
@@ -87,5 +83,5 @@ class VotingResults extends Equatable {
   }
 
   @override
-  List<Object?> get props => [rankings, eliminatedParticipantId, tiedParticipantIds, spreadsheetUrl];
+  List<Object?> get props => [rankings, eliminatedParticipantId, tiedParticipantIds];
 }

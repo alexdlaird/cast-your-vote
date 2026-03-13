@@ -7,16 +7,34 @@ import 'package:theatre_121/domain/services/google_sheets_service.dart';
 
 class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
+  static const _sheetsScope = 'https://www.googleapis.com/auth/drive.file';
+
   Future<AuthClient> _getAuthClient() async {
     var account = googleSignIn.currentUser;
     account ??= await googleSignIn.signInSilently();
-    // If silent sign-in fails (e.g., after hot restart), prompt for sign-in
-    account ??= await googleSignIn.signIn();
+
+    // If no account, sign in
     if (account == null) {
-      throw StateError('Google sign-in required to export spreadsheet. Please try again.');
+      account = await googleSignIn.signIn();
+      if (account == null) {
+        throw StateError('Google sign-in required. Please try again.');
+      }
     }
 
+    // Request the drive.file scope explicitly - this triggers OAuth consent on web
+    // and ensures we get an access token (not just an ID token from FedCM)
+    final hasScope = await googleSignIn.requestScopes([_sheetsScope]);
+    if (!hasScope) {
+      throw StateError('Google Sheets access denied. Please grant permission to continue.');
+    }
+
+    // Now get the authentication with the proper access token
     final auth = await account.authentication;
+
+    if (auth.accessToken == null) {
+      throw StateError('Unable to get Google access token. Please sign out and sign back in.');
+    }
+
     final credentials = AccessCredentials(
       AccessToken(
         'Bearer',
@@ -24,7 +42,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         DateTime.now().toUtc().add(const Duration(hours: 1)),
       ),
       null,
-      ['https://www.googleapis.com/auth/drive.file'],
+      [_sheetsScope],
     );
 
     return authenticatedClient(http.Client(), credentials);

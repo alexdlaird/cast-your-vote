@@ -5,21 +5,12 @@ enum SnackType {
   info,
   error;
 
-  Color backgroundColor(BuildContext context) {
+  Color? backgroundColor(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return switch (this) {
-      SnackType.success => Colors.green.shade700,
-      SnackType.info => colorScheme.primaryContainer,
+      SnackType.success => null, // Use default
+      SnackType.info => null,    // Use default
       SnackType.error => colorScheme.error,
-    };
-  }
-
-  Color foregroundColor(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return switch (this) {
-      SnackType.success => Colors.white,
-      SnackType.info => colorScheme.onPrimaryContainer,
-      SnackType.error => colorScheme.onError,
     };
   }
 }
@@ -42,10 +33,7 @@ class SnackBarHelper {
 
     final controller = messenger.showSnackBar(
       SnackBar(
-        content: SelectableText(
-          message,
-          style: TextStyle(color: type.foregroundColor(context)),
-        ),
+        content: SelectableText(message),
         backgroundColor: type.backgroundColor(context),
         duration: Duration(seconds: seconds),
         action: action,

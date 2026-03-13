@@ -97,11 +97,10 @@ class AdminDashboardView extends StatelessWidget {
   bool _shouldListen(AdminState previous, AdminState current) {
     if (current is AdminError) return true;
 
-    // Show snackbar when export/refetch completes successfully
-    if (previous is AdminLoaded &&
-        current is AdminLoaded &&
-        previous.isClosingVoting &&
-        current.closingProgress == ClosingProgress.complete) {
+    // Show snackbar when export or refetch completes
+    if (current is AdminLoaded &&
+        (current.closingProgress == ClosingProgress.exportComplete ||
+            current.closingProgress == ClosingProgress.refetchComplete)) {
       return true;
     }
     return false;
@@ -110,11 +109,14 @@ class AdminDashboardView extends StatelessWidget {
   void _onStateChanged(BuildContext context, AdminState state) {
     if (state is AdminError) {
       _showError(context, state.message);
-    } else if (state is AdminLoaded &&
-        state.closingProgress == ClosingProgress.complete) {
-      final spreadsheetUrl = state.currentEvent?.spreadsheetUrl;
-      if (spreadsheetUrl != null) {
-        _showExportSuccess(context, spreadsheetUrl);
+    } else if (state is AdminLoaded) {
+      if (state.closingProgress == ClosingProgress.exportComplete) {
+        final spreadsheetUrl = state.currentEvent?.spreadsheetUrl;
+        if (spreadsheetUrl != null) {
+          _showExportSuccess(context, spreadsheetUrl);
+        }
+      } else if (state.closingProgress == ClosingProgress.refetchComplete) {
+        SnackBarHelper.show(context, 'Calculated results refetched from spreadsheet');
       }
     }
   }
@@ -344,7 +346,7 @@ class AdminDashboardView extends StatelessWidget {
     final results = state.votingResults!;
     final eliminated = results.eliminatedParticipant;
     final tiedParticipants = results.tiedParticipants;
-    final isRefetching = state.closingProgress == ClosingProgress.calculatingResults;
+    final isRefetching = state.closingProgress == ClosingProgress.refetchingResults;
 
     return Card(
       child: Padding(

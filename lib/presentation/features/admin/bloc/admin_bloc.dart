@@ -89,8 +89,10 @@ enum ClosingProgress {
   none,
   closingVoting,
   exportingBallots,
-  calculatingResults,
-  complete,
+  fetchingResults,
+  refetchingResults,
+  exportComplete,       // Export finished - show export success snackbar
+  refetchComplete,      // Refetch finished - show refetch success snackbar
 }
 
 abstract class AdminState extends Equatable {
@@ -125,7 +127,8 @@ class AdminLoaded extends AdminState {
   VotingResults? get votingResults => currentEvent?.votingResults;
 
   bool get isClosingVoting => closingProgress != ClosingProgress.none &&
-      closingProgress != ClosingProgress.complete;
+      closingProgress != ClosingProgress.exportComplete &&
+      closingProgress != ClosingProgress.refetchComplete;
 
   int get audienceBallotCount => ballots.where((b) => b.isAudience).length;
   int get judgeBallotCount => ballots.where((b) => b.isJudge).length;
@@ -140,10 +143,12 @@ class AdminLoaded extends AdminState {
         return 'Closing voting ...';
       case ClosingProgress.exportingBallots:
         return 'Exporting ballots ...';
-      case ClosingProgress.calculatingResults:
+      case ClosingProgress.fetchingResults:
+      case ClosingProgress.refetchingResults:
         return 'Fetching results ...';
       case ClosingProgress.none:
-      case ClosingProgress.complete:
+      case ClosingProgress.exportComplete:
+      case ClosingProgress.refetchComplete:
         return '';
     }
   }
@@ -210,7 +215,11 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
   ) {
     emit(const AdminLoading());
 
+    // Reset all subscriptions and state to force full reload
     _eventSubscription?.cancel();
+    _ballotsSubscription?.cancel();
+    _currentEventId = null;
+
     _eventSubscription = _eventRepository.watchCurrentEvent().listen(
       (event) => add(_EventUpdated(event)),
       onError: (e) => add(_StreamError(e.toString())),
@@ -342,18 +351,26 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       await _eventRepository.updateSpreadsheetUrl(eventData.id, spreadsheetUrl);
 
       // Step 3: Fetch results from spreadsheet
-      currentState = currentState.copyWith(closingProgress: ClosingProgress.calculatingResults);
+      currentState = currentState.copyWith(closingProgress: ClosingProgress.fetchingResults);
       emit(currentState);
       final results = await _fetchResults(
         event: eventData,
         spreadsheetUrl: spreadsheetUrl,
       );
 
-      // Step 4: Save results to Firestore (stream will update UI)
+      // Step 4: Save results to Firestore
       await _eventRepository.updateVotingResults(eventData.id, results);
 
-      // Step 5: Complete
-      emit(currentState.copyWith(closingProgress: ClosingProgress.complete));
+      // Step 5: Update local state immediately and complete (stream will eventually sync)
+      final updatedEvent = eventData.copyWith(
+        status: EventStatus.closed,
+        spreadsheetUrl: spreadsheetUrl,
+        votingResults: results,
+      );
+      emit(currentState.copyWith(
+        currentEvent: updatedEvent,
+        closingProgress: ClosingProgress.exportComplete,
+      ));
     } catch (e) {
       if (state is AdminLoaded) {
         emit((state as AdminLoaded).copyWith(closingProgress: ClosingProgress.none));
@@ -381,7 +398,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
 
     try {
       // Show loading indicator
-      currentState = currentState.copyWith(closingProgress: ClosingProgress.calculatingResults);
+      currentState = currentState.copyWith(closingProgress: ClosingProgress.refetchingResults);
       emit(currentState);
 
       // Fetch results from spreadsheet
@@ -390,10 +407,15 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         spreadsheetUrl: spreadsheetUrl,
       );
 
-      // Save to Firestore (stream will update UI)
+      // Save to Firestore
       await _eventRepository.updateVotingResults(eventData.id, results);
 
-      emit(currentState.copyWith(closingProgress: ClosingProgress.complete));
+      // Update local state immediately (stream will eventually sync)
+      final updatedEvent = eventData.copyWith(votingResults: results);
+      emit(currentState.copyWith(
+        currentEvent: updatedEvent,
+        closingProgress: ClosingProgress.refetchComplete,
+      ));
     } catch (e) {
       if (state is AdminLoaded) {
         emit((state as AdminLoaded).copyWith(closingProgress: ClosingProgress.none));

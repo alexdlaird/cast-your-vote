@@ -49,6 +49,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String? _logoMimeType;
   String? _logoFileName;
 
+  static String? _filenameFromUrl(String url) {
+    try {
+      final path = Uri.decodeFull(Uri.parse(url).path);
+      return path.split('/').last;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -285,6 +294,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             previousLogoUrl: widget.previousLogoUrl,
             logoBytes: _logoBytes,
             logoMimeType: _logoMimeType,
+            logoFileName: _logoFileName,
           ),
         );
   }
@@ -307,6 +317,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             audienceBallotCount: int.parse(_audienceCountController.text),
             logoBytes: _logoBytes,
             logoMimeType: _logoMimeType,
+            logoFileName: _logoFileName,
           ),
         );
   }
@@ -500,7 +511,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: TextFormField(
@@ -518,24 +529,24 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: _pickLogo,
-                      icon: Icon(
-                        _logoBytes != null || widget.previousLogoUrl != null
-                            ? Icons.image
-                            : Icons.upload,
-                        size: 18,
-                      ),
-                      label: Text(
-                        _logoBytes != null
-                            ? _logoFileName ?? 'Logo selected'
-                            : widget.previousLogoUrl != null
-                                ? 'Change Logo'
-                                : 'Upload Logo',
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  OutlinedButton.icon(
+                    onPressed: _pickLogo,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 56),
+                    ),
+                    icon: Icon(
+                      _logoBytes != null || widget.previousLogoUrl != null
+                          ? Icons.image
+                          : Icons.upload,
+                      size: 18,
+                    ),
+                    label: Text(
+                      _logoBytes != null
+                          ? _logoFileName ?? 'Logo selected'
+                          : widget.previousLogoUrl != null
+                              ? _filenameFromUrl(widget.previousLogoUrl!) ?? 'Logo selected'
+                              : 'Upload Logo',
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

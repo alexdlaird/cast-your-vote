@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -42,16 +43,17 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Use Firestore emulator in debug mode (Auth uses real Firebase for OAuth)
+  // Use emulators in debug mode (Auth uses real Firebase for OAuth)
   if (kDebugMode) {
     FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+    await FirebaseStorage.instance.useStorageEmulator('localhost', 9199);
   }
 
-  runApp(const ComeOutSinginApp());
+  runApp(const CastYourVoteApp());
 }
 
-class ComeOutSinginApp extends StatelessWidget {
-  const ComeOutSinginApp({super.key});
+class CastYourVoteApp extends StatelessWidget {
+  const CastYourVoteApp({super.key});
 
   @override
   Widget build(BuildContext context) {

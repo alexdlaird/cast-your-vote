@@ -9,16 +9,22 @@ class StorageService {
   StorageService({FirebaseStorage? storage})
       : _storage = storage ?? FirebaseStorage.instance;
 
-  /// Uploads a logo for [eventId] and returns the public download URL.
-  /// The file is stored at `logos/<eventId>.<ext>` and overwrites any prior
-  /// upload for the same event.
   Future<String> uploadEventLogo(
     String eventId,
     Uint8List bytes,
-    String mimeType,
-  ) async {
+    String mimeType, {
+    required String eventName,
+    String? fileName,
+  }) async {
     final ext = _extForMime(mimeType);
-    final ref = _storage.ref('logos/$eventId.$ext');
+    final slug = eventName
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '')
+        .toLowerCase();
+    final prefix = fileName != null
+        ? fileName.replaceAll(RegExp(r'\.[^.]+$'), '') // strip extension
+        : null;
+    final name = prefix != null ? '$prefix-$slug' : slug;
+    final ref = _storage.ref('logos/$name.$ext');
     final metadata = SettableMetadata(contentType: mimeType);
     await ref.putData(bytes, metadata);
     return ref.getDownloadURL();

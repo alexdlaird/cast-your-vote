@@ -59,6 +59,7 @@ class CreateEvent extends AdminEvent {
   final String? previousLogoUrl;
   final Uint8List? logoBytes;
   final String? logoMimeType;
+  final String? logoFileName;
 
   const CreateEvent({
     required this.name,
@@ -68,6 +69,7 @@ class CreateEvent extends AdminEvent {
     this.previousLogoUrl,
     this.logoBytes,
     this.logoMimeType,
+    this.logoFileName,
   });
 
   @override
@@ -96,6 +98,7 @@ class UpdateEvent extends AdminEvent {
   final int audienceBallotCount;
   final Uint8List? logoBytes;
   final String? logoMimeType;
+  final String? logoFileName;
 
   const UpdateEvent({
     required this.eventId,
@@ -105,6 +108,7 @@ class UpdateEvent extends AdminEvent {
     required this.audienceBallotCount,
     this.logoBytes,
     this.logoMimeType,
+    this.logoFileName,
   });
 
   @override
@@ -390,6 +394,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           newEvent.id,
           event.logoBytes!,
           event.logoMimeType!,
+          eventName: event.name,
+          fileName: event.logoFileName,
         );
         newEvent = newEvent.copyWith(logoUrl: logoUrl);
         await _eventRepository.updateEvent(newEvent);
@@ -470,6 +476,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           existingEvent.id,
           event.logoBytes!,
           event.logoMimeType!,
+          eventName: event.name,
+          fileName: event.logoFileName,
         );
       }
 

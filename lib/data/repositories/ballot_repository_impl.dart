@@ -70,12 +70,12 @@ class BallotRepositoryImpl implements BallotRepository {
   Future<void> createBallots({
     required String eventId,
     required int audienceCount,
-    required List<String> judgeNames,
+    required List<JudgeModel> judges,
   }) async {
     await createBallotsAndReturn(
       eventId: eventId,
       audienceCount: audienceCount,
-      judgeNames: judgeNames,
+      judges: judges,
     );
   }
 
@@ -83,12 +83,12 @@ class BallotRepositoryImpl implements BallotRepository {
   Future<List<BallotModel>> createBallotsAndReturn({
     required String eventId,
     required int audienceCount,
-    required List<String> judgeNames,
+    required List<JudgeModel> judges,
   }) async {
     final now = DateTime.now();
 
     // Generate all codes in parallel
-    final allCodes = await _generateUniqueCodes(audienceCount + judgeNames.length);
+    final allCodes = await _generateUniqueCodes(audienceCount + judges.length);
     final audienceCodes = allCodes.sublist(0, audienceCount);
     final judgeCodes = allCodes.sublist(audienceCount);
 
@@ -114,7 +114,8 @@ class BallotRepositoryImpl implements BallotRepository {
         eventId: eventId,
         submitted: false,
         createdAt: now,
-        judgeName: judgeNames[i],
+        judgeName: judges[i].name,
+        judgeWeight: judges[i].weight,
       ));
     }
 

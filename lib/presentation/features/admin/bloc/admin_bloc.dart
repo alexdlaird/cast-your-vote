@@ -53,18 +53,44 @@ class CreateEvent extends AdminEvent {
   final String name;
   final List<String> participantNames;
   final int audienceBallotCount;
-  final List<String> judgeNames;
+  final List<JudgeModel> judges;
 
   const CreateEvent({
     required this.name,
     required this.participantNames,
     required this.audienceBallotCount,
-    required this.judgeNames,
+    required this.judges,
   });
 
   @override
   List<Object?> get props =>
-      [name, participantNames, audienceBallotCount, judgeNames];
+      [name, participantNames, audienceBallotCount, judges];
+}
+
+class UpdateParticipantDonation extends AdminEvent {
+  final String participantId;
+  final bool hasDonation;
+
+  const UpdateParticipantDonation({
+    required this.participantId,
+    required this.hasDonation,
+  });
+
+  @override
+  List<Object?> get props => [participantId, hasDonation];
+}
+
+class UpdateParticipantDropout extends AdminEvent {
+  final String participantId;
+  final bool droppedOut;
+
+  const UpdateParticipantDropout({
+    required this.participantId,
+    required this.droppedOut,
+  });
+
+  @override
+  List<Object?> get props => [participantId, droppedOut];
 }
 
 class CloseVoting extends AdminEvent {
@@ -210,6 +236,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     on<CloseVoting>(_onCloseVoting);
     on<RefetchResults>(_onRefetchResults);
     on<UpdateDonationWinner>(_onUpdateDonationWinner);
+    on<UpdateParticipantDonation>(_onUpdateParticipantDonation);
+    on<UpdateParticipantDropout>(_onUpdateParticipantDropout);
   }
 
   void _onStartWatching(
@@ -304,7 +332,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           id: '',
           name: event.name,
           participants: participants,
-          judges: event.judgeNames,
+          judges: event.judges,
           status: EventStatus.open,
           createdAt: DateTime.now(),
         ),
@@ -313,7 +341,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       final ballots = await _ballotRepository.createBallotsAndReturn(
         eventId: newEvent.id,
         audienceCount: event.audienceBallotCount,
-        judgeNames: event.judgeNames,
+        judges: event.judges,
       );
 
       // Emit AdminLoaded directly - streams will update with any changes
@@ -504,6 +532,64 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       // Stream will automatically update the state
     } catch (e, stackTrace) {
       _log.severe('Failed to update donation winners', e, stackTrace);
+      emit(AdminError(e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateParticipantDropout(
+    UpdateParticipantDropout event,
+    Emitter<AdminState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! AdminLoaded || currentState.currentEvent == null) {
+      return;
+    }
+
+    final currentEvent = currentState.currentEvent!;
+    final updatedParticipants = currentEvent.participants.map((p) {
+      if (p.id != event.participantId) return p;
+      // Clearing donation when marking as dropped out
+      return p.copyWith(
+        droppedOut: event.droppedOut,
+        hasDonation: event.droppedOut ? false : p.hasDonation,
+      );
+    }).toList();
+
+    try {
+      await _eventRepository.updateParticipants(
+        currentEvent.id,
+        updatedParticipants,
+      );
+    } catch (e, stackTrace) {
+      _log.severe('Failed to update participant dropout', e, stackTrace);
+      emit(AdminError(e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateParticipantDonation(
+    UpdateParticipantDonation event,
+    Emitter<AdminState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! AdminLoaded || currentState.currentEvent == null) {
+      return;
+    }
+
+    final currentEvent = currentState.currentEvent!;
+    final updatedParticipants = currentEvent.participants.map((p) {
+      return p.id == event.participantId
+          ? p.copyWith(hasDonation: event.hasDonation)
+          : p;
+    }).toList();
+
+    try {
+      await _eventRepository.updateParticipants(
+        currentEvent.id,
+        updatedParticipants,
+      );
+      // Stream will automatically update state
+    } catch (e, stackTrace) {
+      _log.severe('Failed to update participant donation', e, stackTrace);
       emit(AdminError(e.toString()));
     }
   }

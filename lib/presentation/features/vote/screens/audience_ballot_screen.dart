@@ -62,6 +62,8 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     Map<String, int> currentVotes,
     int participantCount,
   ) {
+    if (participant.droppedOut) return;
+
     final currentRank = currentVotes[participant.id];
 
     if (currentRank != null) {
@@ -335,6 +337,40 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     Map<String, int> allVotes,
     int participantCount,
   ) {
+    if (participant.droppedOut) {
+      return Card(
+        color: context.colorScheme.surfaceContainerHighest,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: context.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  participant.displayName,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: context.colorScheme.onSurfaceVariant,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+              ),
+              Text(
+                'Dropped out',
+                style: context.textTheme.bodySmall?.copyWith(
+                  color: context.colorScheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final controller = _getController(participant.id, rank);
     final hasRank = rank != null;
 

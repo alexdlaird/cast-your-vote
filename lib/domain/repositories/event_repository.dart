@@ -5,6 +5,7 @@ abstract class EventRepository {
   Future<EventModel> createEvent(EventModel event);
   Future<void> updateEvent(EventModel event);
   Future<void> updateDonationWinners(String eventId, {String? largestDonationWinnerId, String? mostDonationsWinnerId});
+  Future<void> updateParticipants(String eventId, List<ParticipantModel> participants);
   Future<void> closeVoting(String eventId);
   Future<void> updateSpreadsheetUrl(String eventId, String spreadsheetUrl);
   Future<void> updateVotingResults(String eventId, VotingResults results);

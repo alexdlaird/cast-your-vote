@@ -75,6 +75,16 @@ class EventRepositoryImpl implements EventRepository {
   }
 
   @override
+  Future<void> updateParticipants(
+    String eventId,
+    List<ParticipantModel> participants,
+  ) async {
+    await _eventsCollection.doc(eventId).update({
+      'participants': participants.map((p) => p.toJson()).toList(),
+    });
+  }
+
+  @override
   Future<void> deleteEvent(String eventId) async {
     await _eventsCollection.doc(eventId).delete();
   }

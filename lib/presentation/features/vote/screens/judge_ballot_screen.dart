@@ -39,6 +39,7 @@ class _JudgeBallotView extends StatefulWidget {
 class _JudgeBallotViewState extends State<_JudgeBallotView> {
   int _currentParticipantIndex = 0;
   final PageController _pageController = PageController();
+  String? _openCommentCategory;
 
   @override
   void dispose() {
@@ -47,7 +48,10 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   }
 
   void _goToParticipant(int index) {
-    setState(() => _currentParticipantIndex = index);
+    setState(() {
+      _currentParticipantIndex = index;
+      _openCommentCategory = null;
+    });
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -263,7 +267,10 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       child: PageView.builder(
         controller: _pageController,
         onPageChanged: (index) {
-          setState(() => _currentParticipantIndex = index);
+          setState(() {
+            _currentParticipantIndex = index;
+            _openCommentCategory = null;
+          });
         },
         itemCount: participants.length,
         itemBuilder: (context, index) {
@@ -345,9 +352,14 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       children: List.generate(
         participants.length,
         (index) {
-          final vote = votes[participants[index].id];
+          final participant = participants[index];
+          final vote = votes[participant.id];
           Color dotColor;
-          if (index == _currentParticipantIndex) {
+          if (participant.droppedOut) {
+            dotColor = index == _currentParticipantIndex
+                ? context.colorScheme.error
+                : context.colorScheme.errorContainer;
+          } else if (index == _currentParticipantIndex) {
             dotColor = context.colorScheme.primary;
           } else if (vote != null && _isVoteComplete(vote)) {
             dotColor = context.colorScheme.primaryContainer;
@@ -379,6 +391,44 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     int index,
     int total,
   ) {
+    if (participant.droppedOut) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: Text(
+              participant.displayName,
+              style: context.textTheme.titleLarge?.copyWith(
+                decoration: TextDecoration.lineThrough,
+                color: context.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.person_off,
+                    size: 56,
+                    color: context.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'This participant dropped out',
+                    style: context.textTheme.bodyLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       children: [
         Padding(
@@ -396,46 +446,53 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
               children: [
                 const SizedBox(height: 8),
                 _buildCategoryRow(
-            context,
-            'Singing',
-            Icons.mic,
-            vote.singing,
-            (value) => _updateVote(
-              context,
-              participant.id,
-              vote.copyWith(singing: value),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildCategoryRow(
-            context,
-            'Performance',
-            Icons.theater_comedy,
-            vote.performance,
-            (value) => _updateVote(
-              context,
-              participant.id,
-              vote.copyWith(performance: value),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildCategoryRow(
-            context,
-            'Audience Participation',
-            Icons.people,
-            vote.audienceParticipation,
-            (value) => _updateVote(
-              context,
-              participant.id,
-              vote.copyWith(audienceParticipation: value),
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildCommentsField(
-            context,
-            participant.id,
-            vote,
-          ),
+                  context,
+                  label: 'Singing',
+                  icon: Icons.mic,
+                  value: vote.singing,
+                  comment: vote.singingComments,
+                  isCommentOpen: _openCommentCategory == 'singing',
+                  onCommentToggle: () => setState(() => _openCommentCategory =
+                      _openCommentCategory == 'singing' ? null : 'singing'),
+                  onScoreChanged: (v) => _updateVote(
+                      context, participant.id, vote.copyWith(singing: v)),
+                  onCommentSaved: (v) => _updateVote(context, participant.id,
+                      vote.copyWith(singingComments: v)),
+                ),
+                const SizedBox(height: 24),
+                _buildCategoryRow(
+                  context,
+                  label: 'Performance',
+                  icon: Icons.theater_comedy,
+                  value: vote.performance,
+                  comment: vote.performanceComments,
+                  isCommentOpen: _openCommentCategory == 'performance',
+                  onCommentToggle: () => setState(() => _openCommentCategory =
+                      _openCommentCategory == 'performance'
+                          ? null
+                          : 'performance'),
+                  onScoreChanged: (v) => _updateVote(
+                      context, participant.id, vote.copyWith(performance: v)),
+                  onCommentSaved: (v) => _updateVote(context, participant.id,
+                      vote.copyWith(performanceComments: v)),
+                ),
+                const SizedBox(height: 24),
+                _buildCategoryRow(
+                  context,
+                  label: 'Song Fit',
+                  icon: Icons.people,
+                  value: vote.audienceParticipation,
+                  comment: vote.audienceParticipationComments,
+                  isCommentOpen: _openCommentCategory == 'audienceParticipation',
+                  onCommentToggle: () => setState(() => _openCommentCategory =
+                      _openCommentCategory == 'audienceParticipation'
+                          ? null
+                          : 'audienceParticipation'),
+                  onScoreChanged: (v) => _updateVote(context, participant.id,
+                      vote.copyWith(audienceParticipation: v)),
+                  onCommentSaved: (v) => _updateVote(context, participant.id,
+                      vote.copyWith(audienceParticipationComments: v)),
+                ),
               ],
             ),
           ),
@@ -444,31 +501,18 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     );
   }
 
-  Widget _buildCommentsField(
-    BuildContext context,
-    String participantId,
-    JudgeVote vote,
-  ) {
-    return _CommentsField(
-      key: ValueKey('comments_$participantId'),
-      participantId: participantId,
-      initialValue: vote.comments,
-      vote: vote,
-      onSave: (value) => _updateVote(
-        context,
-        participantId,
-        vote.copyWith(comments: value),
-      ),
-    );
-  }
-
   Widget _buildCategoryRow(
-    BuildContext context,
-    String label,
-    IconData icon,
-    int value,
-    ValueChanged<int> onChanged,
-  ) {
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required int value,
+    required String comment,
+    required bool isCommentOpen,
+    required VoidCallback onCommentToggle,
+    required ValueChanged<int> onScoreChanged,
+    required ValueChanged<String> onCommentSaved,
+  }) {
+    final hasComment = comment.isNotEmpty;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -478,9 +522,21 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
               children: [
                 Icon(icon, color: context.colorScheme.primary),
                 const SizedBox(width: 12),
-                Text(
-                  label,
-                  style: context.textTheme.titleMedium,
+                Expanded(
+                  child: Text(label, style: context.textTheme.titleMedium),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.comment,
+                    size: 20,
+                    color: hasComment || isCommentOpen
+                        ? context.colorScheme.primary
+                        : context.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: isCommentOpen ? 'Close comment' : 'Add comment',
+                  onPressed: onCommentToggle,
                 ),
               ],
             ),
@@ -489,8 +545,16 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
               value: value,
               min: 1,
               max: 5,
-              onChanged: onChanged,
+              onChanged: onScoreChanged,
             ),
+            if (isCommentOpen) ...[
+              const SizedBox(height: 12),
+              _CategoryCommentField(
+                key: ValueKey('comment_$label'),
+                initialValue: comment,
+                onSave: onCommentSaved,
+              ),
+            ],
           ],
         ),
       ),
@@ -508,25 +572,21 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   }
 }
 
-class _CommentsField extends StatefulWidget {
-  final String participantId;
+class _CategoryCommentField extends StatefulWidget {
   final String initialValue;
-  final JudgeVote vote;
   final ValueChanged<String> onSave;
 
-  const _CommentsField({
+  const _CategoryCommentField({
     super.key,
-    required this.participantId,
     required this.initialValue,
-    required this.vote,
     required this.onSave,
   });
 
   @override
-  State<_CommentsField> createState() => _CommentsFieldState();
+  State<_CategoryCommentField> createState() => _CategoryCommentFieldState();
 }
 
-class _CommentsFieldState extends State<_CommentsField> {
+class _CategoryCommentFieldState extends State<_CategoryCommentField> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
   String _lastSavedValue = '';
@@ -541,7 +601,7 @@ class _CommentsFieldState extends State<_CommentsField> {
   }
 
   @override
-  void didUpdateWidget(_CommentsField oldWidget) {
+  void didUpdateWidget(_CategoryCommentField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialValue != widget.initialValue &&
         widget.initialValue != _controller.text) {
@@ -552,6 +612,10 @@ class _CommentsFieldState extends State<_CommentsField> {
 
   @override
   void dispose() {
+    // Save on dispose so closing the field persists whatever was typed
+    if (_controller.text != _lastSavedValue) {
+      widget.onSave(_controller.text);
+    }
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     _controller.dispose();
@@ -567,33 +631,14 @@ class _CommentsFieldState extends State<_CommentsField> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.comment, color: context.colorScheme.primary),
-                const SizedBox(width: 12),
-                Text(
-                  'Comments',
-                  style: context.textTheme.titleMedium,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _controller,
-              focusNode: _focusNode,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Optional feedback for this participant...',
-              ),
-            ),
-          ],
-        ),
+    return TextFormField(
+      controller: _controller,
+      focusNode: _focusNode,
+      autofocus: true,
+      maxLines: 2,
+      decoration: const InputDecoration(
+        hintText: 'Optional comments for participant ...',
+        isDense: true,
       ),
     );
   }

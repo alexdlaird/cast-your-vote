@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
+import 'package:theatre_121/data/models/judge_model.dart';
 import 'package:theatre_121/data/models/participant_model.dart';
 import 'package:theatre_121/data/models/voting_results_model.dart';
 
@@ -9,7 +10,7 @@ class EventModel extends Equatable {
   final String id;
   final String name;
   final List<ParticipantModel> participants;
-  final List<String> judges;
+  final List<JudgeModel> judges;
   final EventStatus status;
   final DateTime createdAt;
   final String? largestDonationWinnerId;
@@ -21,7 +22,7 @@ class EventModel extends Equatable {
     required this.id,
     required this.name,
     required this.participants,
-    this.judges = const [],
+    this.judges = const <JudgeModel>[],
     required this.status,
     required this.createdAt,
     this.largestDonationWinnerId,
@@ -43,8 +44,10 @@ class EventModel extends Equatable {
               .map((p) => ParticipantModel.fromJson(p as Map<String, dynamic>))
               .toList(),
       judges: (json['judges'] as List<dynamic>?)
-              ?.map((j) => j as String)
-              .toList() ?? const [],
+              ?.map((j) => j is String
+                  ? JudgeModel(name: j)
+                  : JudgeModel.fromJson(j as Map<String, dynamic>))
+              .toList() ?? const <JudgeModel>[],
       status: EventStatus.values.byName(json['status'] as String),
       createdAt: (json['createdAt'] as Timestamp).toDate(),
       largestDonationWinnerId: nullIfEmpty(json['largestDonationWinnerId'] as String?),
@@ -60,7 +63,7 @@ class EventModel extends Equatable {
     return {
       'name': name,
       'participants': participants.map((p) => p.toJson()).toList(),
-      'judges': judges,
+      'judges': judges.map((j) => j.toJson()).toList(),
       'status': status.name,
       'createdAt': Timestamp.fromDate(createdAt),
       'largestDonationWinnerId': largestDonationWinnerId,
@@ -78,7 +81,7 @@ class EventModel extends Equatable {
     String? id,
     String? name,
     List<ParticipantModel>? participants,
-    List<String>? judges,
+    List<JudgeModel>? judges,
     EventStatus? status,
     DateTime? createdAt,
     String? largestDonationWinnerId,

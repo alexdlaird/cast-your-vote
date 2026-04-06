@@ -186,19 +186,19 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
     emit(const BallotLoading());
 
     try {
-      final ballot = await _ballotRepository.getBallot(event.code);
-      if (ballot == null) {
+      final loadedBallot = await _ballotRepository.getBallot(event.code);
+      if (loadedBallot == null) {
         emit(const BallotNotFound());
         return;
       }
 
-      if (ballot.submitted) {
+      if (loadedBallot.submitted) {
         emit(const BallotAlreadySubmitted());
         return;
       }
 
       final eventModel = await _eventRepository.getCurrentEvent();
-      if (eventModel == null || eventModel.id != ballot.eventId) {
+      if (eventModel == null || eventModel.id != loadedBallot.eventId) {
         emit(const BallotVotingClosed());
         return;
       }
@@ -208,7 +208,11 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
         return;
       }
 
+      final ballot = _fillDroppedOutScores(loadedBallot, eventModel);
       emit(BallotLoaded(ballot: ballot, event: eventModel));
+
+      // If dropout pre-filling changed anything, persist immediately
+      if (ballot != loadedBallot) _schedulePersist();
     } catch (e, stackTrace) {
       _log.severe('Failed to load ballot', e, stackTrace);
       emit(BallotError(e.toString()));
@@ -294,10 +298,13 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
         return;
       }
 
+      // Apply fresh dropout scores before final write (handles dropouts added mid-session)
+      final ballotToSubmit = _fillDroppedOutScores(currentState.ballot, eventModel);
+
       // Write final state and submit
-      await _ballotRepository.updateBallot(currentState.ballot);
-      _lastWrittenBallot = currentState.ballot;
-      await _ballotRepository.submitBallot(currentState.ballot.code);
+      await _ballotRepository.updateBallot(ballotToSubmit);
+      _lastWrittenBallot = ballotToSubmit;
+      await _ballotRepository.submitBallot(ballotToSubmit.code);
       emit(const BallotSubmitted());
     } catch (e, stackTrace) {
       _log.severe('Failed to submit ballot', e, stackTrace);
@@ -315,16 +322,59 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
     // Cancel any pending persist
     _persistTimer?.cancel();
 
-    final clearedBallot = currentState.ballot.copyWith(
+    var clearedBallot = currentState.ballot.copyWith(
       audienceVotes: const {},
       judgeVotes: const {},
     );
+    clearedBallot = _fillDroppedOutScores(clearedBallot, currentState.event);
 
     // Optimistic update - show cleared state immediately
     emit(BallotLoaded(ballot: clearedBallot, event: currentState.event));
 
     // Schedule debounced persist
     _schedulePersist();
+  }
+
+  /// Pre-fills worst scores for dropped-out participants:
+  /// - Audience: assigns ranks from the bottom (N, N-1, …) to any unranked dropout
+  /// - Judge: sets all categories to 1 (worst) for every dropout
+  BallotModel _fillDroppedOutScores(BallotModel ballot, EventModel event) {
+    final droppedOut = event.participants.where((p) => p.droppedOut).toList();
+    if (droppedOut.isEmpty) return ballot;
+
+    if (ballot.isAudience) {
+      final votes = Map<String, int>.from(ballot.audienceVotes);
+      final participantCount = event.participants.length;
+      final usedRanks = votes.values.toSet();
+      var rank = participantCount;
+      for (final p in droppedOut) {
+        if (!votes.containsKey(p.id)) {
+          while (usedRanks.contains(rank) && rank >= 1) {
+            rank--;
+          }
+          if (rank >= 1) {
+            votes[p.id] = rank;
+            usedRanks.add(rank);
+            rank--;
+          }
+        }
+      }
+      return ballot.copyWith(audienceVotes: votes);
+    }
+
+    if (ballot.isJudge) {
+      final judgeVotes = Map<String, JudgeVote>.from(ballot.judgeVotes);
+      for (final p in droppedOut) {
+        judgeVotes[p.id] = const JudgeVote(
+          singing: 1,
+          performance: 1,
+          audienceParticipation: 1,
+        );
+      }
+      return ballot.copyWith(judgeVotes: judgeVotes);
+    }
+
+    return ballot;
   }
 
   @override

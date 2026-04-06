@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:theatre_121/config/app_routes.dart';
+import 'package:theatre_121/data/models/models.dart';
 import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
 import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
@@ -13,7 +14,7 @@ class CreateEventScreen extends StatefulWidget {
   final bool hasExistingEvent;
   final String? previousEventName;
   final List<String>? previousParticipants;
-  final List<String>? previousJudges;
+  final List<JudgeModel>? previousJudges;
   final int? previousAudienceCount;
 
   const CreateEventScreen({
@@ -35,6 +36,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   late final TextEditingController _audienceCountController;
   final List<TextEditingController> _judgeControllers = [];
   final List<FocusNode> _judgeFocusNodes = [];
+  final List<int> _judgeWeights = [];
   final List<TextEditingController> _participantControllers = [];
   final List<FocusNode> _participantFocusNodes = [];
 
@@ -52,15 +54,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     // Initialize judges
     if (widget.previousJudges != null && widget.previousJudges!.isNotEmpty) {
-      for (final name in widget.previousJudges!) {
-        _judgeControllers.add(TextEditingController(text: name));
+      for (final judge in widget.previousJudges!) {
+        _judgeControllers.add(TextEditingController(text: judge.name));
         _judgeFocusNodes.add(FocusNode());
+        _judgeWeights.add(judge.weight);
       }
     } else {
       // Start with 5 empty judge slots
       for (int i = 0; i < 5; i++) {
         _judgeControllers.add(TextEditingController());
         _judgeFocusNodes.add(FocusNode());
+        _judgeWeights.add(5);
       }
     }
 
@@ -106,6 +110,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() {
       _judgeControllers.add(TextEditingController());
       _judgeFocusNodes.add(FocusNode());
+      _judgeWeights.add(5);
     });
   }
 
@@ -116,6 +121,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _judgeControllers.removeAt(index);
         _judgeFocusNodes[index].dispose();
         _judgeFocusNodes.removeAt(index);
+        _judgeWeights.removeAt(index);
       });
     }
   }
@@ -175,21 +181,25 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       return;
     }
 
-    final judgeNames = _judgeControllers
-        .map((c) => c.text.trim())
-        .toList();
+    final judges = [
+      for (int i = 0; i < _judgeControllers.length; i++)
+        JudgeModel(
+          name: _judgeControllers[i].text.trim(),
+          weight: _judgeWeights[i],
+        ),
+    ];
     final participantNames = _participantControllers
         .map((c) => c.text.trim())
         .toList();
 
     if (widget.hasExistingEvent) {
-      _confirmCreateEvent(judgeNames, participantNames);
+      _confirmCreateEvent(judges, participantNames);
     } else {
-      _submitEvent(judgeNames, participantNames);
+      _submitEvent(judges, participantNames);
     }
   }
 
-  void _confirmCreateEvent(List<String> judgeNames, List<String> participantNames) {
+  void _confirmCreateEvent(List<JudgeModel> judges, List<String> participantNames) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -211,7 +221,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-                    _submitEvent(judgeNames, participantNames);
+                    _submitEvent(judges, participantNames);
                   },
                   child: const Text('Continue'),
                 ),
@@ -223,13 +233,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  void _submitEvent(List<String> judgeNames, List<String> participantNames) {
+  void _submitEvent(List<JudgeModel> judges, List<String> participantNames) {
     context.read<AdminBloc>().add(
           CreateEvent(
             name: _eventNameController.text.trim(),
             participantNames: participantNames,
             audienceBallotCount: int.parse(_audienceCountController.text),
-            judgeNames: judgeNames,
+            judges: judges,
           ),
         );
   }
@@ -264,6 +274,35 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 }
               },
             ),
+          ),
+          const SizedBox(width: 12),
+          Text('Weight', style: context.textTheme.bodySmall),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.remove, size: 16),
+            visualDensity: VisualDensity.compact,
+            focusNode: FocusNode(skipTraversal: true),
+            onPressed: _judgeWeights[index] > 1
+                ? () => setState(() => _judgeWeights[index]--)
+                : null,
+          ),
+          SizedBox(
+            width: 20,
+            child: Text(
+              '${_judgeWeights[index]}',
+              textAlign: TextAlign.center,
+              style: context.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, size: 16),
+            visualDensity: VisualDensity.compact,
+            focusNode: FocusNode(skipTraversal: true),
+            onPressed: _judgeWeights[index] < 5
+                ? () => setState(() => _judgeWeights[index]++)
+                : null,
           ),
           IconButton(
             onPressed: () => _removeJudgeField(index),

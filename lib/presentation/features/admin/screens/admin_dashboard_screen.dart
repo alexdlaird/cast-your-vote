@@ -190,7 +190,7 @@ class AdminDashboardView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Create a first event to start accepting votes',
+          'Create your first event to start accepting votes',
           style: context.textTheme.bodyMedium?.copyWith(
             color: context.colorScheme.onSurfaceVariant,
           ),
@@ -257,9 +257,21 @@ class AdminDashboardView extends StatelessWidget {
               runSpacing: 4,
               children: (List.of(event.participants)
                     ..sort((a, b) => a.order.compareTo(b.order)))
-                  .map<Widget>((p) => Chip(
-                        label: Text('${p.order}. ${p.displayName}'),
-                        visualDensity: VisualDensity.compact,
+                  .map<Widget>((p) => _ParticipantChip(
+                        participant: p,
+                        isEditable: event.isVotingOpen,
+                        onDonationTap: () => context.read<AdminBloc>().add(
+                              UpdateParticipantDonation(
+                                participantId: p.id,
+                                hasDonation: !p.hasDonation,
+                              ),
+                            ),
+                        onDropoutTap: () => context.read<AdminBloc>().add(
+                              UpdateParticipantDropout(
+                                participantId: p.id,
+                                droppedOut: !p.droppedOut,
+                              ),
+                            ),
                       ))
                   .toList(),
             ),
@@ -769,6 +781,98 @@ class AdminDashboardView extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticipantChip extends StatelessWidget {
+  final ParticipantModel participant;
+  final bool isEditable;
+  final VoidCallback onDonationTap;
+  final VoidCallback onDropoutTap;
+
+  const _ParticipantChip({
+    required this.participant,
+    required this.isEditable,
+    required this.onDonationTap,
+    required this.onDropoutTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDroppedOut = participant.droppedOut;
+    return Container(
+      padding: const EdgeInsets.only(left: 10, right: 2, top: 4, bottom: 4),
+      decoration: BoxDecoration(
+        color: isDroppedOut
+            ? context.colorScheme.errorContainer.withValues(alpha: 0.3)
+            : context.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDroppedOut
+              ? context.colorScheme.error.withValues(alpha: 0.3)
+              : context.colorScheme.outlineVariant,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${participant.order}. ${participant.displayName}',
+            style: context.textTheme.bodyMedium?.copyWith(
+              decoration: isDroppedOut ? TextDecoration.lineThrough : null,
+              color: isDroppedOut
+                  ? context.colorScheme.onSurfaceVariant
+                  : null,
+            ),
+          ),
+          if (isEditable) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: isDroppedOut
+                  ? ''
+                  : participant.hasDonation
+                      ? 'Remove donation'
+                      : 'Mark donation received',
+              child: InkWell(
+                onTap: isDroppedOut ? null : onDonationTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.attach_money,
+                    size: 16,
+                    color: participant.hasDonation
+                        ? Colors.green.shade600
+                        : context.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
+            Tooltip(
+              message: isDroppedOut
+                  ? 'Restore participant'
+                  : 'Mark as dropped out',
+              child: InkWell(
+                onTap: onDropoutTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.exit_to_app,
+                    size: 16,
+                    color: isDroppedOut
+                        ? context.colorScheme.error
+                        : context.colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

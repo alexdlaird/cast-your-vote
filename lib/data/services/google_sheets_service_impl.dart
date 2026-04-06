@@ -58,6 +58,8 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
 
     // Build judge votes sheet
+    // Scores are inverted (6 - score) so that higher raw score → lower contribution,
+    // keeping the combined total aligned with audience ranking (higher total = worse).
     final judgeRows = <List<Object?>>[];
     judgeRows.add([
       'Judge',
@@ -65,19 +67,23 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       'Participant',
       'Singing',
       'Performance',
-      'Audience Participation',
+      'Song Fit',
+      'Weight',
       'Total',
-      'Comments',
+      'Singing Comments',
+      'Performance Comments',
+      'Song Fit Comments',
     ]);
     for (final ballot in judgeBallots) {
       for (final participant in participants) {
         final vote = ballot.judgeVotes[participant.id];
         if (vote != null) {
-          // Each judge category multiplied by 3 (max 15 per category)
-          final singing = vote.singing * 3;
-          final performance = vote.performance * 3;
-          final audienceParticipation = vote.audienceParticipation * 3;
-          final total = singing + performance + audienceParticipation;
+          // Invert scores: (6 - score) * 3 so that 5 (best) → 3, 1 (worst) → 15
+          final singing = (6 - vote.singing) * 3;
+          final performance = (6 - vote.performance) * 3;
+          final audienceParticipation = (6 - vote.audienceParticipation) * 3;
+          final weightRatio = ballot.judgeWeight / 5.0;
+          final total = (singing + performance + audienceParticipation) * weightRatio;
           judgeRows.add([
             ballot.judgeName ?? ballot.code,
             ballot.code,
@@ -85,32 +91,48 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
             singing,
             performance,
             audienceParticipation,
+            weightRatio,
             total,
-            vote.comments,
+            vote.singingComments,
+            vote.performanceComments,
+            vote.audienceParticipationComments,
           ]);
         }
       }
     }
 
     // Build summary sheet
+    // Columns: Participant | Audience Total | Judge Total | Donation | Highest Donation | Most Donations | Combined
+    // Donation: 1 if participant has hasDonation, else 0
+    // Highest Donation: 1 for largestDonationWinnerId, else 0
+    // Most Donations: 1 for mostDonationsWinnerId, else 0
     final summaryRows = <List<Object?>>[];
-    summaryRows.add(['Participant', 'Audience Total', 'Judge Total', 'Bonus', 'Combined']);
+    summaryRows.add([
+      'Participant',
+      'Audience Total',
+      'Judge Total',
+      'Donation',
+      'Highest Donation',
+      'Most Donations',
+      'Combined',
+    ]);
     for (var i = 0; i < participants.length; i++) {
       final participant = participants[i];
       final col = _columnLetter(i + 2); // B, C, D, etc.
       final row = i + 2; // 2, 3, 4, etc.
 
-      // Calculate bonus points (0.25 each for largest donation and most donations)
-      var bonus = 0.0;
-      if (event.largestDonationWinnerId == participant.id) bonus += 0.25;
-      if (event.mostDonationsWinnerId == participant.id) bonus += 0.25;
+      final donation = participant.hasDonation ? 1 : 0;
+      final highestDonation = event.largestDonationWinnerId == participant.id ? 1 : 0;
+      final mostDonations = event.mostDonationsWinnerId == participant.id ? 1 : 0;
 
       summaryRows.add([
         participant.displayName,
         "=SUM('Audience Votes'!${col}2:$col)",
-        "=SUMIF('Judge Votes'!C:C,\"${participant.displayName}\",'Judge Votes'!G:G)",
-        bonus,
-        '=B$row+C$row+D$row',
+        "=SUMIF('Judge Votes'!C:C,\"${participant.displayName}\",'Judge Votes'!H:H)",
+        donation,
+        highestDonation,
+        mostDonations,
+        '=B$row+C$row+D$row+E$row+F$row',
       ]);
     }
 
@@ -176,10 +198,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
     final spreadsheetId = pathSegments[dIndex + 1];
 
-    // Read the Summary sheet (columns: Participant, Audience, Judge, Bonus, Combined)
+    // Read the Summary sheet (columns: Participant, Audience, Judge, Donation, Highest Donation, Most Donations, Combined)
     final response = await sheetsApi.spreadsheets.values.get(
       spreadsheetId,
-      'Summary!A2:E100',
+      'Summary!A2:G100',
     );
 
     final values = response.values;
@@ -197,8 +219,8 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         name: row[0].toString(),
         audienceTotal: row.length > 1 ? int.tryParse(row[1].toString()) ?? 0 : 0,
         judgeTotal: row.length > 2 ? int.tryParse(row[2].toString()) ?? 0 : 0,
-        // Combined is in column E (index 4), may have decimals from bonus points
-        combinedScore: row.length > 4 ? double.tryParse(row[4].toString()) ?? 0 : 0,
+        // Combined is in column G (index 6)
+        combinedScore: row.length > 6 ? double.tryParse(row[6].toString()) ?? 0 : 0,
       ));
     }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:printing/printing.dart';
@@ -259,11 +259,9 @@ class _BallotCodeCard extends StatelessWidget {
             ),
             if (!ballot.submitted)
               IconButton(
-                icon: const Icon(Icons.copy),
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: ballot.code));
-                  SnackBarHelper.show(context, 'Code copied to clipboard');
-                },
+                icon: const Icon(Icons.open_in_new),
+                tooltip: 'Open ballot in browser',
+                onPressed: () => launchUrl(Uri.parse(_url)),
               ),
           ],
         ),

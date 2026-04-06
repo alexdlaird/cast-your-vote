@@ -651,7 +651,7 @@ class AdminDashboardView extends StatelessWidget {
               isEditable: isEditable,
               onChanged: (value) {
                 context.read<AdminBloc>().add(
-                      UpdateDonationWinner(largestDonationWinnerId: value ?? ''),
+                      UpdateDonationWinner(largestDonationWinnerId: value),
                     );
               },
             ),
@@ -665,7 +665,7 @@ class AdminDashboardView extends StatelessWidget {
               isEditable: isEditable,
               onChanged: (value) {
                 context.read<AdminBloc>().add(
-                      UpdateDonationWinner(mostDonationsWinnerId: value ?? ''),
+                      UpdateDonationWinner(mostDonationsWinnerId: value),
                     );
               },
             ),
@@ -739,12 +739,10 @@ class AdminDashboardView extends StatelessWidget {
 
     // Validate bonus points are selected
     final missingBonusPoints = <String>[];
-    if (event.largestDonationWinnerId == null ||
-        event.largestDonationWinnerId!.isEmpty) {
+    if (event.largestDonationWinnerId == null) {
       missingBonusPoints.add('Largest Donation');
     }
-    if (event.mostDonationsWinnerId == null ||
-        event.mostDonationsWinnerId!.isEmpty) {
+    if (event.mostDonationsWinnerId == null) {
       missingBonusPoints.add('Most Donations');
     }
 

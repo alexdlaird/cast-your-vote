@@ -20,9 +20,7 @@ class StorageService {
     final slug = eventName
         .replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '')
         .toLowerCase();
-    final prefix = fileName != null
-        ? fileName.replaceAll(RegExp(r'\.[^.]+$'), '') // strip extension
-        : null;
+    final prefix = fileName?.replaceAll(RegExp(r'\.[^.]+$'), '');
     final name = prefix != null ? '$prefix-$slug' : slug;
     final ref = _storage.ref('logos/$name.$ext');
     final metadata = SettableMetadata(contentType: mimeType);

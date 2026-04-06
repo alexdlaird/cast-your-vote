@@ -630,7 +630,7 @@ class AdminDashboardView extends StatelessWidget {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
-            hint: const Text('Select performer'),
+            hint: const Text('Select performer', overflow: TextOverflow.ellipsis),
             items: participants
                 .map(
                   (p) => DropdownMenuItem<String>(
@@ -894,7 +894,7 @@ class _ParticipantChip extends StatelessWidget {
                   padding: const EdgeInsets.all(4),
                   child: Icon(
                     Icons.attach_money,
-                    size: 16,
+                    size: 18,
                     color: participant.hasDonation
                         ? Colors.green.shade600
                         : context.colorScheme.onSurfaceVariant.withValues(
@@ -918,7 +918,7 @@ class _ParticipantChip extends StatelessWidget {
                   padding: const EdgeInsets.all(4),
                   child: Icon(
                     Icons.exit_to_app,
-                    size: 16,
+                    size: 18,
                     color: isDroppedOut
                         ? context.colorScheme.error
                         : context.colorScheme.onSurfaceVariant.withValues(

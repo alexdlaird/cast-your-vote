@@ -16,6 +16,8 @@ class RoundsScreen extends StatefulWidget {
 }
 
 class _RoundsScreenState extends State<RoundsScreen> {
+  final _formKey = GlobalKey<FormState>();
+
   late List<ParticipantModel> _participants;
 
   // _roundEntries[roundIndex][participantIndex] = TextEditingController
@@ -78,8 +80,11 @@ class _RoundsScreenState extends State<RoundsScreen> {
   }
 
   bool _validate() {
-    return true;
+    return _formKey.currentState!.validate();
   }
+
+  bool get _anyTitleFilled =>
+      _roundEntries.any((round) => round.any((c) => c.text.trim().isNotEmpty));
 
   List<RoundModel> _buildRounds() {
     return List.generate(_roundCount, (ri) {
@@ -146,7 +151,9 @@ class _RoundsScreenState extends State<RoundsScreen> {
           listener: (context, state) {
             context.go(AppRoutes.adminBallots);
           },
-          child: ListView(
+          child: Form(
+            key: _formKey,
+            child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               for (var ri = 0; ri < _roundCount; ri++) ...[
@@ -197,6 +204,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -229,6 +237,12 @@ class _RoundsScreenState extends State<RoundsScreen> {
                       hintText: 'Song title',
                       isDense: true,
                     ),
+                    validator: (value) {
+                      if (_anyTitleFilled && (value == null || value.trim().isEmpty)) {
+                        return 'Required';
+                      }
+                      return null;
+                    },
                   ),
                 ),
               ],

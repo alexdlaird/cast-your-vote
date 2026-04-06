@@ -2,7 +2,6 @@ import 'package:cast_your_vote/config/app_routes.dart';
 import 'package:cast_your_vote/data/models/models.dart';
 import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
-import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,7 +48,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   Uint8List? _logoBytes;
   String? _logoMimeType;
-  String? _logoFileName;
+  late String? _logoFileName;
+
+  bool get _hasLogo => _logoBytes != null || widget.previousLogoUrl != null;
 
   static String? _filenameFromUrl(String url) {
     try {
@@ -63,6 +64,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   void initState() {
     super.initState();
+
+    _logoFileName = widget.previousLogoUrl != null
+        ? _filenameFromUrl(widget.previousLogoUrl!)
+        : null;
 
     // Pre-populate from previous event or use defaults
     _eventNameController = TextEditingController(
@@ -196,36 +201,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   void _goToRounds() {
     if (!_formKey.currentState!.validate()) return;
 
-    final emptyJudgeIndices = <int>[];
-    for (int i = 0; i < _judgeControllers.length; i++) {
-      if (_judgeControllers[i].text.trim().isEmpty) {
-        emptyJudgeIndices.add(i + 1);
-      }
-    }
-    if (emptyJudgeIndices.isNotEmpty) {
-      SnackBarHelper.show(
-        context,
-        'Fill in all judge names (missing: ${emptyJudgeIndices.join(", ")})',
-        type: SnackType.error,
-      );
-      return;
-    }
-
-    final emptyParticipantIndices = <int>[];
-    for (int i = 0; i < _participantControllers.length; i++) {
-      if (_participantControllers[i].text.trim().isEmpty) {
-        emptyParticipantIndices.add(i + 1);
-      }
-    }
-    if (emptyParticipantIndices.isNotEmpty) {
-      SnackBarHelper.show(
-        context,
-        'Fill in all performer names (missing: ${emptyParticipantIndices.join(", ")})',
-        type: SnackType.error,
-      );
-      return;
-    }
-
     final judges = [
       for (int i = 0; i < _judgeControllers.length; i++)
         JudgeModel(
@@ -335,6 +310,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 hintText: 'Judge ${index + 1} name',
                 isDense: true,
               ),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
               onFieldSubmitted: (_) {
                 if (index < _judgeFocusNodes.length - 1) {
                   _judgeFocusNodes[index + 1].requestFocus();
@@ -448,6 +425,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 hintText: 'Performer ${index + 1} name',
                 isDense: true,
               ),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
               onFieldSubmitted: (_) {
                 if (index < _participantFocusNodes.length - 1) {
                   _participantFocusNodes[index + 1].requestFocus();
@@ -530,26 +509,22 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      OutlinedButton.icon(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 125),
+                        child: OutlinedButton.icon(
                         onPressed: _pickLogo,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 56),
                         ),
                         icon: Icon(
-                          _logoBytes != null || widget.previousLogoUrl != null
-                              ? Icons.image
-                              : Icons.upload,
+                          _hasLogo ? Icons.image : Icons.upload,
                           size: 18,
                         ),
                         label: Text(
-                          _logoBytes != null
-                              ? _logoFileName ?? 'Logo selected'
-                              : widget.previousLogoUrl != null
-                              ? _filenameFromUrl(widget.previousLogoUrl!) ??
-                                    'Logo selected'
-                              : 'Upload Logo',
+                          _logoFileName ?? 'Logo',
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ),
                       ),
                     ],
                   ),

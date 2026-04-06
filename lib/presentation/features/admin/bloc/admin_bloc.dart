@@ -181,6 +181,7 @@ class AdminLoading extends AdminState {
 class AdminLoaded extends AdminState {
   final EventModel? currentEvent;
   final List<BallotModel> ballots;
+  final bool ballotsInitialized;
   final bool isCreatingEvent;
   final bool isUpdatingEvent;
   final ClosingProgress closingProgress;
@@ -188,6 +189,7 @@ class AdminLoaded extends AdminState {
   const AdminLoaded({
     this.currentEvent,
     this.ballots = const [],
+    this.ballotsInitialized = false,
     this.isCreatingEvent = false,
     this.isUpdatingEvent = false,
     this.closingProgress = ClosingProgress.none,
@@ -227,11 +229,12 @@ class AdminLoaded extends AdminState {
 
   @override
   List<Object?> get props =>
-      [currentEvent, ballots, isCreatingEvent, isUpdatingEvent, closingProgress];
+      [currentEvent, ballots, ballotsInitialized, isCreatingEvent, isUpdatingEvent, closingProgress];
 
   AdminLoaded copyWith({
     EventModel? currentEvent,
     List<BallotModel>? ballots,
+    bool? ballotsInitialized,
     bool? isCreatingEvent,
     bool? isUpdatingEvent,
     ClosingProgress? closingProgress,
@@ -240,6 +243,7 @@ class AdminLoaded extends AdminState {
     return AdminLoaded(
       currentEvent: clearEvent ? null : (currentEvent ?? this.currentEvent),
       ballots: ballots ?? this.ballots,
+      ballotsInitialized: ballotsInitialized ?? this.ballotsInitialized,
       isCreatingEvent: isCreatingEvent ?? this.isCreatingEvent,
       isUpdatingEvent: isUpdatingEvent ?? this.isUpdatingEvent,
       closingProgress: closingProgress ?? this.closingProgress,
@@ -351,9 +355,13 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     final currentState = state;
     if (currentState is AdminLoaded) {
       // Only emit if ballots actually changed
-      if (!const DeepCollectionEquality()
-          .equals(currentState.ballots, event.ballots)) {
-        emit(currentState.copyWith(ballots: event.ballots));
+      if (!currentState.ballotsInitialized ||
+          !const DeepCollectionEquality()
+              .equals(currentState.ballots, event.ballots)) {
+        emit(currentState.copyWith(
+          ballots: event.ballots,
+          ballotsInitialized: true,
+        ));
       }
     }
   }
@@ -425,7 +433,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       );
 
       // Emit AdminLoaded directly - streams will update with any changes
-      emit(AdminLoaded(currentEvent: newEvent, ballots: ballots));
+      emit(AdminLoaded(currentEvent: newEvent, ballots: ballots, ballotsInitialized: true));
     } catch (e, stackTrace) {
       _log.severe('Failed to create event', e, stackTrace);
       emit(AdminError(e.toString()));

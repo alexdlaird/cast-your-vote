@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -73,70 +71,51 @@ class AppRouter {
           GoRoute(
             path: AppRoutes.adminCreateEvent,
             builder: (context, state) {
-              final isEditMode = state.uri.queryParameters['edit'] == 'true';
-              final adminState = context.read<AdminBloc>().state;
+              return BlocBuilder<AdminBloc, AdminState>(
+                buildWhen: (previous, current) {
+                  if (current is! AdminLoaded) return false;
+                  // Already built with fully-loaded data — don't rebuild.
+                  if (previous is AdminLoaded &&
+                      (previous.currentEvent == null || previous.ballotsInitialized)) {
+                    return false;
+                  }
+                  // Wait until ballots have arrived (or there's no event yet).
+                  return current.currentEvent == null || current.ballotsInitialized;
+                },
+                builder: (context, adminState) {
+                  if (adminState is! AdminLoaded) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-              String? editEventId;
-              String? previousEventName;
-              List<ParticipantModel>? previousParticipants;
-              List<JudgeModel>? previousJudges;
-              int? previousAudienceCount;
-              bool hasExistingEvent = false;
+                  String? editEventId;
+                  String? previousEventName;
+                  List<ParticipantModel>? previousParticipants;
+                  List<JudgeModel>? previousJudges;
+                  int? previousAudienceCount;
 
-              if (adminState is AdminLoaded && adminState.currentEvent != null) {
-                final currentEvent = adminState.currentEvent!;
+                  if (adminState.currentEvent != null) {
+                    final currentEvent = adminState.currentEvent!;
+                    editEventId = currentEvent.id;
+                    previousEventName = currentEvent.name;
+                    previousParticipants = List<ParticipantModel>.from(
+                      currentEvent.participants,
+                    )..sort((a, b) => a.order.compareTo(b.order));
+                    previousJudges = currentEvent.judges;
+                    previousAudienceCount = adminState.audienceBallotCount;
+                  }
 
-                if (isEditMode) {
-                  // Edit mode: preserve participant order and IDs.
-                  editEventId = currentEvent.id;
-                  previousEventName = currentEvent.name;
-                  previousParticipants = List<ParticipantModel>.from(
-                    currentEvent.participants,
-                  )..sort((a, b) => a.order.compareTo(b.order));
-                  previousJudges = currentEvent.judges;
-                  previousAudienceCount = adminState.audienceBallotCount;
-                } else {
-                  // Create new mode: shuffle participants, reset IDs for the new event.
-                  hasExistingEvent = true;
-                  previousEventName = currentEvent.name;
-
-                  final eliminatedId =
-                      adminState.votingResults?.eliminatedParticipantId;
-                  final filtered = currentEvent.participants
-                      .where((p) => eliminatedId == null || p.id != eliminatedId)
-                      .toList()
-                    ..shuffle(Random());
-
-                  previousParticipants = filtered
-                      .asMap()
-                      .entries
-                      .map((entry) => ParticipantModel(
-                            id: '',
-                            name: entry.value.name,
-                            order: entry.key + 1,
-                          ))
-                      .toList();
-
-                  previousJudges = currentEvent.judges;
-                  previousAudienceCount = adminState.audienceBallotCount;
-                }
-              }
-
-              return CreateEventScreen(
-                editEventId: editEventId,
-                hasExistingEvent: hasExistingEvent,
-                previousEventName: previousEventName,
-                previousParticipants: previousParticipants,
-                previousJudges: previousJudges,
-                previousAudienceCount: previousAudienceCount,
-                previousLogoUrl: adminState is AdminLoaded
-                    ? adminState.currentEvent?.logoUrl
-                    : null,
-                previousRounds: isEditMode &&
-                        adminState is AdminLoaded &&
-                        adminState.currentEvent != null
-                    ? adminState.currentEvent!.rounds
-                    : const [],
+                  return CreateEventScreen(
+                    editEventId: editEventId,
+                    previousEventName: previousEventName,
+                    previousParticipants: previousParticipants,
+                    previousJudges: previousJudges,
+                    previousAudienceCount: previousAudienceCount,
+                    previousLogoUrl: adminState.currentEvent?.logoUrl,
+                    previousRounds: adminState.currentEvent?.rounds ?? const [],
+                  );
+                },
               );
             },
           ),

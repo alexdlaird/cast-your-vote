@@ -1,7 +1,7 @@
 # Cast Your Vote!
 
-A voting app for an event with participants, an audience, and judges! Each event can have one or more rounds. Audience
-members and judges submit ballots via QR codes, and admins can manage events and export results.
+A voting app for a round-based singing competition, with audience & judge ballot generation, Google Sheets results
+export, and event-based eliminations.
 
 ## Prerequisites
 

@@ -107,9 +107,9 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Lock This Round?'),
+        title: const Text('Lock Votes?'),
         content: Text(
-          "You won't be able to change your Round $roundNum votes after this. Continue?",
+          'Once you advance to the next round, your Round $roundNum votes will be locked in. Continue?',
         ),
         actions: [
           Row(
@@ -379,10 +379,9 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
         ),
       );
     } else if (isLastParticipant && isMultiRound && !isLastRound) {
-      // Last participant of a non-final round → "Next Round"
       primaryButton = ElevatedButton(
         onPressed: canSubmit ? () => _confirmAdvanceRound(context, state) : null,
-        child: Text(canSubmit ? 'Next Round' : 'Score All Participants'),
+        child: Text(canSubmit ? 'Submit & Continue' : 'Rank all performers to continue'),
       );
     } else if (isLastParticipant) {
       // Last participant of the final round (or single-round) → "Submit"
@@ -390,7 +389,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
         onPressed: canSubmit
             ? () => context.read<BallotBloc>().add(const SubmitBallot())
             : null,
-        child: Text(canSubmit ? 'Submit All Votes' : 'Score All Participants'),
+        child: Text(canSubmit ? 'Submit All Votes' : 'Rank all performers to continue'),
       );
     } else {
       primaryButton = ElevatedButton(

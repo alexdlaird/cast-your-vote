@@ -380,6 +380,18 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         return entry.value.copyWith(id: 'j${entry.key + 1}');
       }).toList();
 
+      final rounds = event.rounds.isNotEmpty
+          ? event.rounds
+          : [
+              RoundModel(
+                id: 'r1',
+                order: 1,
+                entries: participants
+                    .map((p) => EntryModel(participantId: p.id, title: ''))
+                    .toList(),
+              ),
+            ];
+
       var newEvent = await _eventRepository.createEvent(
         EventModel(
           id: '',
@@ -389,7 +401,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           status: EventStatus.open,
           createdAt: DateTime.now(),
           logoUrl: event.previousLogoUrl,
-          rounds: event.rounds,
+          rounds: rounds,
         ),
       );
 

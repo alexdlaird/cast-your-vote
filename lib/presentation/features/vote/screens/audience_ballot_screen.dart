@@ -123,9 +123,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Lock This Round?'),
+        title: const Text('Lock Votes?'),
         content: Text(
-          "You won't be able to change your Round $roundNum votes after this. Continue?",
+          'Once you advance to the next round, your Round $roundNum votes will be locked in. Continue?',
         ),
         actions: [
           Row(
@@ -352,7 +352,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
             ? () => _confirmAdvanceRound(context, state)
             : null,
         child: Text(
-          _unranked.isEmpty ? 'Next Round' : 'Rank all performers to continue',
+          _unranked.isEmpty ? 'Submit & Continue' : 'Rank all performers to continue',
         ),
       );
     }
@@ -368,7 +368,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : Text(
-              _unranked.isEmpty ? 'Submit Vote' : 'Rank all performers to submit',
+              _unranked.isEmpty ? 'Submit All Votes' : 'Rank all performers to continue',
             ),
     );
   }
@@ -570,10 +570,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   }
 
   String? _entryTitle(ParticipantModel participant, BallotLoaded state) {
-    if (!state.event.isMultiRound && state.event.rounds.isEmpty) return null;
-    if (state.event.rounds.isEmpty) return null;
-    final round = state.currentRound;
-    return round?.entryForParticipant(participant.id)?.title;
+    return state.currentRound?.entryForParticipant(participant.id)?.title;
   }
 
   Widget _buildCard(

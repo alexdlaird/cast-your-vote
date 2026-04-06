@@ -1,7 +1,5 @@
 // Copyright (c) 2024 Cast Your Vote. MIT License.
 
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -11,45 +9,16 @@ import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 
-/// Data passed from CreateEventScreen to RoundsScreen via GoRouter extra.
-class RoundsScreenArgs {
-  final String? editEventId;
-  final String name;
-  final List<ParticipantModel> participants;
-  final List<JudgeModel> judges;
-  final int audienceBallotCount;
-  final String? previousLogoUrl;
-  final Uint8List? logoBytes;
-  final String? logoMimeType;
-  final String? logoFileName;
-  final bool hasExistingEvent;
-  final List<RoundModel> previousRounds;
-
-  const RoundsScreenArgs({
-    this.editEventId,
-    required this.name,
-    required this.participants,
-    required this.judges,
-    required this.audienceBallotCount,
-    this.previousLogoUrl,
-    this.logoBytes,
-    this.logoMimeType,
-    this.logoFileName,
-    this.hasExistingEvent = false,
-    this.previousRounds = const [],
-  });
-}
-
 class RoundsScreen extends StatefulWidget {
-  final RoundsScreenArgs args;
-
-  const RoundsScreen({super.key, required this.args});
+  const RoundsScreen({super.key});
 
   @override
   State<RoundsScreen> createState() => _RoundsScreenState();
 }
 
+
 class _RoundsScreenState extends State<RoundsScreen> {
+  late List<ParticipantModel> _participants;
   // _roundEntries[roundIndex][participantIndex] = TextEditingController
   late List<List<TextEditingController>> _roundEntries;
   int _roundCount = 1;
@@ -61,13 +30,20 @@ class _RoundsScreenState extends State<RoundsScreen> {
   }
 
   void _initRounds() {
-    final previous = widget.args.previousRounds;
+    final adminState = context.read<AdminBloc>().state;
+    final event =
+        adminState is AdminLoaded ? adminState.currentEvent : null;
+
+    _participants = List<ParticipantModel>.from(event?.participants ?? [])
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    final previous = event?.rounds ?? [];
     _roundCount = previous.isNotEmpty ? previous.length : 1;
     _roundEntries = List.generate(_roundCount, (ri) {
       final round = ri < previous.length ? previous[ri] : null;
-      return List.generate(widget.args.participants.length, (pi) {
-        final participantId = widget.args.participants[pi].id;
-        final title = round?.entryForParticipant(participantId)?.title ?? '';
+      return List.generate(_participants.length, (pi) {
+        final title =
+            round?.entryForParticipant(_participants[pi].id)?.title ?? '';
         return TextEditingController(text: title);
       });
     });
@@ -87,10 +63,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
     setState(() {
       _roundCount++;
       _roundEntries.add(
-        List.generate(
-          widget.args.participants.length,
-          (_) => TextEditingController(),
-        ),
+        List.generate(_participants.length, (_) => TextEditingController()),
       );
     });
   }
@@ -107,30 +80,17 @@ class _RoundsScreenState extends State<RoundsScreen> {
   }
 
   bool _validate() {
-    for (var ri = 0; ri < _roundCount; ri++) {
-      for (var pi = 0; pi < _roundEntries[ri].length; pi++) {
-        if (_roundEntries[ri][pi].text.trim().isEmpty) {
-          SnackBarHelper.show(
-            context,
-            'Fill in all entry titles (Round ${ri + 1}, ${widget.args.participants[pi].name})',
-            type: SnackType.error,
-          );
-          return false;
-        }
-      }
-    }
     return true;
   }
 
   List<RoundModel> _buildRounds() {
     return List.generate(_roundCount, (ri) {
-      final roundId = 'r${ri + 1}';
       return RoundModel(
-        id: roundId,
+        id: 'r${ri + 1}',
         order: ri + 1,
-        entries: List.generate(widget.args.participants.length, (pi) {
+        entries: List.generate(_participants.length, (pi) {
           return EntryModel(
-            participantId: widget.args.participants[pi].id,
+            participantId: _participants[pi].id,
             title: _roundEntries[ri][pi].text.trim(),
           );
         }),
@@ -140,66 +100,43 @@ class _RoundsScreenState extends State<RoundsScreen> {
 
   void _submit() {
     if (!_validate()) return;
-    final rounds = _buildRounds();
-    final args = widget.args;
 
-    if (args.editEventId != null) {
-      context.read<AdminBloc>().add(UpdateEvent(
-            eventId: args.editEventId!,
-            name: args.name,
-            participants: args.participants,
-            judges: args.judges,
-            rounds: rounds,
-            audienceBallotCount: args.audienceBallotCount,
-            logoBytes: args.logoBytes,
-            logoMimeType: args.logoMimeType,
-            logoFileName: args.logoFileName,
-          ));
-    } else {
-      context.read<AdminBloc>().add(CreateEvent(
-            name: args.name,
-            participantNames: args.participants.map((p) => p.name).toList(),
-            audienceBallotCount: args.audienceBallotCount,
-            judges: args.judges,
-            rounds: rounds,
-            previousLogoUrl: args.previousLogoUrl,
-            logoBytes: args.logoBytes,
-            logoMimeType: args.logoMimeType,
-            logoFileName: args.logoFileName,
-          ));
-    }
+    final adminState = context.read<AdminBloc>().state;
+    if (adminState is! AdminLoaded || adminState.currentEvent == null) return;
+    final event = adminState.currentEvent!;
+
+    context.read<AdminBloc>().add(UpdateEvent(
+          eventId: event.id,
+          name: event.name,
+          participants: event.participants,
+          judges: event.judges,
+          rounds: _buildRounds(),
+          audienceBallotCount: adminState.audienceBallotCount,
+        ));
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.args.editEventId != null;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(
-            '${AppRoutes.adminCreateEvent}${isEdit ? '?edit=true' : ''}',
+            '${AppRoutes.adminCreateEvent}?edit=true',
           ),
         ),
         titleSpacing: 0,
-        title: Text(isEdit ? 'Edit Rounds' : 'Configure Rounds'),
+        title: const Text('Edit Rounds'),
       ),
       body: BlocListener<AdminBloc, AdminState>(
         listenWhen: (previous, current) {
           if (previous is! AdminLoaded || current is! AdminLoaded) return false;
-          final doneCreating =
-              previous.isCreatingEvent && !current.isCreatingEvent;
-          final doneUpdating =
-              previous.isUpdatingEvent && !current.isUpdatingEvent;
-          return (doneCreating || doneUpdating) && current.currentEvent != null;
+          return previous.isUpdatingEvent &&
+              !current.isUpdatingEvent &&
+              current.currentEvent != null;
         },
         listener: (context, state) {
-          if (isEdit) {
-            context.go(AppRoutes.admin);
-          } else {
-            context.go(AppRoutes.adminBallots);
-          }
+          context.go(AppRoutes.adminBallots);
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -214,7 +151,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _addRound,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Round'),
+                    label: const Text('Round'),
                   ),
                 ),
                 if (_roundCount > 1) ...[
@@ -227,7 +164,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                         side: BorderSide(color: context.colorScheme.error),
                       ),
                       icon: const Icon(Icons.remove, size: 18),
-                      label: const Text('Remove Last Round'),
+                      label: const Text('Last Round'),
                     ),
                   ),
                 ],
@@ -236,8 +173,8 @@ class _RoundsScreenState extends State<RoundsScreen> {
             const SizedBox(height: 32),
             BlocBuilder<AdminBloc, AdminState>(
               builder: (context, state) {
-                final isLoading = state is AdminLoaded &&
-                    (state.isCreatingEvent || state.isUpdatingEvent);
+                final isLoading =
+                    state is AdminLoaded && state.isUpdatingEvent;
                 return ElevatedButton(
                   onPressed: isLoading ? null : _submit,
                   child: isLoading
@@ -246,9 +183,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(isEdit
-                          ? 'Update Event'
-                          : 'Create Event & Generate Ballots'),
+                      : const Text('Save Changes'),
                 );
               },
             ),
@@ -267,7 +202,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
           style: context.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        for (var pi = 0; pi < widget.args.participants.length; pi++)
+        for (var pi = 0; pi < _participants.length; pi++)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
@@ -275,7 +210,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                 SizedBox(
                   width: 120,
                   child: Text(
-                    widget.args.participants[pi].name,
+                    _participants[pi].name,
                     style: context.textTheme.bodyMedium,
                     overflow: TextOverflow.ellipsis,
                   ),

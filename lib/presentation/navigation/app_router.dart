@@ -142,13 +142,7 @@ class AppRouter {
           ),
           GoRoute(
             path: AppRoutes.adminRounds,
-            builder: (context, state) {
-              final args = state.extra as RoundsScreenArgs?;
-              if (args == null) {
-                return const SizedBox.shrink();
-              }
-              return RoundsScreen(args: args);
-            },
+            builder: (context, state) => const RoundsScreen(),
           ),
         ],
       ),

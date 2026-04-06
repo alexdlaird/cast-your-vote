@@ -1,11 +1,12 @@
 import 'package:cast_your_vote/config/app_routes.dart';
 import 'package:cast_your_vote/data/models/models.dart';
-import 'package:cast_your_vote/presentation/features/admin/screens/rounds/rounds_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -243,23 +244,32 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         ),
     ];
 
-    void navigate() {
-      context.go(
-        AppRoutes.adminRounds,
-        extra: RoundsScreenArgs(
-          editEventId: widget.editEventId,
-          name: _eventNameController.text.trim(),
-          participants: participants,
-          judges: judges,
-          audienceBallotCount: int.parse(_audienceCountController.text),
-          previousLogoUrl: widget.previousLogoUrl,
-          logoBytes: _logoBytes,
-          logoMimeType: _logoMimeType,
-          logoFileName: _logoFileName,
-          hasExistingEvent: widget.hasExistingEvent,
-          previousRounds: widget.previousRounds,
-        ),
-      );
+    void dispatch() {
+      if (widget.editEventId != null) {
+        context.read<AdminBloc>().add(UpdateEvent(
+              eventId: widget.editEventId!,
+              name: _eventNameController.text.trim(),
+              participants: participants,
+              judges: judges,
+              rounds: widget.previousRounds,
+              audienceBallotCount: int.parse(_audienceCountController.text),
+              logoBytes: _logoBytes,
+              logoMimeType: _logoMimeType,
+              logoFileName: _logoFileName,
+            ));
+      } else {
+        context.read<AdminBloc>().add(CreateEvent(
+              name: _eventNameController.text.trim(),
+              participantNames: participants.map((p) => p.name).toList(),
+              audienceBallotCount: int.parse(_audienceCountController.text),
+              judges: judges,
+              rounds: const [],
+              previousLogoUrl: widget.previousLogoUrl,
+              logoBytes: _logoBytes,
+              logoMimeType: _logoMimeType,
+              logoFileName: _logoFileName,
+            ));
+      }
     }
 
     if (widget.editEventId == null && widget.hasExistingEvent) {
@@ -284,7 +294,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
-                      navigate();
+                      dispatch();
                     },
                     child: const Text('Continue'),
                   ),
@@ -295,7 +305,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         ),
       );
     } else {
-      navigate();
+      dispatch();
     }
   }
 
@@ -455,17 +465,33 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: null,
-          onPressed: () => context.go(AppRoutes.admin),
-        ),
-        titleSpacing: 0,
-        title: Text(widget.editEventId != null ? 'Edit Event' : 'Create Event'),
-      ),
-      body: Form(
+    return BlocConsumer<AdminBloc, AdminState>(
+      listenWhen: (previous, current) {
+        if (previous is! AdminLoaded || current is! AdminLoaded) return false;
+        final doneCreating =
+            previous.isCreatingEvent && !current.isCreatingEvent;
+        final doneUpdating =
+            previous.isUpdatingEvent && !current.isUpdatingEvent;
+        return (doneCreating || doneUpdating) && current.currentEvent != null;
+      },
+      listener: (context, state) {
+        context.go(AppRoutes.adminRounds);
+      },
+      builder: (context, state) {
+        final isBusy = state is AdminLoaded &&
+            (state.isCreatingEvent || state.isUpdatingEvent);
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: null,
+              onPressed: () => context.go(AppRoutes.admin),
+            ),
+            titleSpacing: 0,
+            title:
+                Text(widget.editEventId != null ? 'Edit Event' : 'Create Event'),
+          ),
+          body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -572,10 +598,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             const SizedBox(height: 8),
             _buildParticipantsList(),
             const SizedBox(height: 32),
-            ElevatedButton(onPressed: _goToRounds, child: const Text('Next')),
+            ElevatedButton(
+              onPressed: isBusy ? null : _goToRounds,
+              child: isBusy
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(widget.editEventId != null
+                      ? 'Update & Continue'
+                      : 'Create & Continue'),
+            ),
           ],
         ),
       ),
+    );
+      },
     );
   }
 }

@@ -337,64 +337,35 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     Map<String, int> allVotes,
     int participantCount,
   ) {
-    if (participant.droppedOut) {
-      return Card(
-        color: context.colorScheme.surfaceContainerHighest,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: context.colorScheme.outlineVariant),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  participant.displayName,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    color: context.colorScheme.onSurfaceVariant,
-                    decoration: TextDecoration.lineThrough,
-                  ),
-                ),
-              ),
-              Text(
-                'Dropped out',
-                style: context.textTheme.bodySmall?.copyWith(
-                  color: context.colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final controller = _getController(participant.id, rank);
+    final isDroppedOut = participant.droppedOut;
     final hasRank = rank != null;
+    final controller = _getController(participant.id, rank);
 
     return Card(
-      color: hasRank
-          ? context.colorScheme.primaryContainer
-          : context.colorScheme.surfaceContainerHighest,
-      elevation: hasRank ? 2 : 1,
+      color: isDroppedOut
+          ? context.colorScheme.surfaceContainerHighest
+          : hasRank
+              ? context.colorScheme.primaryContainer
+              : context.colorScheme.surfaceContainerHighest,
+      elevation: (!isDroppedOut && hasRank) ? 2 : (isDroppedOut ? 0 : 1),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: hasRank
+          color: (!isDroppedOut && hasRank)
               ? context.colorScheme.primary
               : context.colorScheme.outlineVariant,
-          width: hasRank ? 2 : 1,
+          width: (!isDroppedOut && hasRank) ? 2 : 1,
         ),
       ),
       child: InkWell(
-        onTap: () => _onParticipantTap(
-          context,
-          participant,
-          allVotes,
-          participantCount,
-        ),
+        onTap: isDroppedOut
+            ? null
+            : () => _onParticipantTap(
+                  context,
+                  participant,
+                  allVotes,
+                  participantCount,
+                ),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -406,6 +377,11 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
                   child: Text(
                     participant.displayName,
                     style: context.textTheme.bodyMedium?.copyWith(
+                      color: isDroppedOut
+                          ? context.colorScheme.onSurfaceVariant
+                          : null,
+                      decoration:
+                          isDroppedOut ? TextDecoration.lineThrough : null,
                       fontWeight: hasRank ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
@@ -413,31 +389,52 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               ),
               SizedBox(
                 width: 48,
-                child: TextFormField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: participantCount >= 10 ? 2 : 1,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: InputDecoration(
-                    counterText: '',
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 8,
-                    ),
-                    filled: true,
-                    fillColor: context.colorScheme.surface,
-                  ),
-                  style: context.textTheme.titleMedium,
-                  onChanged: (value) => _onRankChanged(
-                    context,
-                    participant.id,
-                    value,
-                    participantCount,
-                  ),
-                ),
+                child: isDroppedOut
+                    ? TextFormField(
+                        enabled: false,
+                        decoration: InputDecoration(
+                          counterText: '',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                          filled: true,
+                          fillColor: context.colorScheme.surfaceContainerHighest,
+                          hintText: '—',
+                          hintStyle: context.textTheme.titleMedium?.copyWith(
+                            color: context.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                          ),
+                          hintTextDirection: TextDirection.ltr,
+                        ),
+                        textAlign: TextAlign.center,
+                        style: context.textTheme.titleMedium,
+                      )
+                    : TextFormField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        maxLength: participantCount >= 10 ? 2 : 1,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        decoration: InputDecoration(
+                          counterText: '',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                          filled: true,
+                          fillColor: context.colorScheme.surface,
+                        ),
+                        style: context.textTheme.titleMedium,
+                        onChanged: (value) => _onRankChanged(
+                          context,
+                          participant.id,
+                          value,
+                          participantCount,
+                        ),
+                      ),
               ),
             ],
           ),

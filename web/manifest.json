@@ -1,11 +1,11 @@
 {
-    "name": "theatre_121",
-    "short_name": "theatre_121",
+    "name": "Cast Your Vote",
+    "short_name": "Cast Your Vote",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#ffffff",
-    "description": "A new Flutter project.",
+    "description": "Real-time ranked-choice voting for live events and competitions.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

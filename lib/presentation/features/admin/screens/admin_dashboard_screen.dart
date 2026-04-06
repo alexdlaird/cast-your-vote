@@ -3,11 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
-import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
-import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
-import 'package:theatre_121/config/app_routes.dart';
-import 'package:theatre_121/data/models/models.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
+import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/data/models/models.dart';
 
 class AdminDashboardView extends StatelessWidget {
   const AdminDashboardView({super.key});

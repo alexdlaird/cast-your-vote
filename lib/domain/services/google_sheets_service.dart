@@ -1,4 +1,4 @@
-import 'package:theatre_121/data/models/models.dart';
+import 'package:cast_your_vote/data/models/models.dart';
 
 abstract class GoogleSheetsService {
   /// Creates a new Google Sheet with voting results.

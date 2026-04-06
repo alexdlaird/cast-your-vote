@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:logging/logging.dart';
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/domain/repositories/ballot_repository.dart';
-import 'package:theatre_121/domain/repositories/event_repository.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/domain/repositories/ballot_repository.dart';
+import 'package:cast_your_vote/domain/repositories/event_repository.dart';
 
 final _log = Logger('ballot_bloc');
 

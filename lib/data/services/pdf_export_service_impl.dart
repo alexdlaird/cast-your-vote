@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/domain/services/pdf_export_service.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/domain/services/pdf_export_service.dart';
 
 class PdfExportServiceImpl implements PdfExportService {
   static const int _columnsPerPage = 3;

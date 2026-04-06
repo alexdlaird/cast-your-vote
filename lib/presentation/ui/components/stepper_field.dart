@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 
 class StepperField extends StatelessWidget {
   final int value;

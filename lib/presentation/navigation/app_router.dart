@@ -3,18 +3,18 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:theatre_121/config/app_routes.dart';
-import 'package:theatre_121/presentation/features/vote/screens/ballot_entry_screen.dart';
-import 'package:theatre_121/presentation/features/vote/screens/ballot_validator_screen.dart';
-import 'package:theatre_121/presentation/features/admin/screens/admin_login_screen.dart';
-import 'package:theatre_121/presentation/features/admin/screens/admin_dashboard_screen.dart';
-import 'package:theatre_121/presentation/features/admin/screens/ballot_codes_screen.dart';
-import 'package:theatre_121/presentation/features/admin/screens/create_event_screen.dart';
-import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
-import 'package:theatre_121/data/repositories/event_repository_impl.dart';
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/data/repositories/ballot_repository_impl.dart';
-import 'package:theatre_121/data/services/google_sheets_service_impl.dart';
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/presentation/features/vote/screens/ballot_entry_screen.dart';
+import 'package:cast_your_vote/presentation/features/vote/screens/ballot_validator_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/screens/admin_login_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/screens/admin_dashboard_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/screens/ballot_codes_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/screens/create_event_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
+import 'package:cast_your_vote/data/repositories/event_repository_impl.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/data/repositories/ballot_repository_impl.dart';
+import 'package:cast_your_vote/data/services/google_sheets_service_impl.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -128,6 +128,9 @@ class AppRouter {
                 previousParticipants: previousParticipants,
                 previousJudges: previousJudges,
                 previousAudienceCount: previousAudienceCount,
+                previousLogoUrl: adminState is AdminLoaded
+                    ? adminState.currentEvent?.logoUrl
+                    : null,
               );
             },
           ),

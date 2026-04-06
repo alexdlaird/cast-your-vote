@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:theatre_121/domain/repositories/ballot_repository.dart';
-import 'package:theatre_121/data/models/models.dart';
+import 'package:cast_your_vote/domain/repositories/ballot_repository.dart';
+import 'package:cast_your_vote/data/models/models.dart';
 
 class BallotRepositoryImpl implements BallotRepository {
   final FirebaseFirestore _firestore;

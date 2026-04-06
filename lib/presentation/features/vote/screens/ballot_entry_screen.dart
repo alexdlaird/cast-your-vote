@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
-import 'package:theatre_121/presentation/ui/layout/app_scaffold.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
-import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
-import 'package:theatre_121/config/app_routes.dart';
-import 'package:theatre_121/data/repositories/ballot_repository_impl.dart';
+import 'package:cast_your_vote/data/repositories/event_repository_impl.dart';
+import 'package:cast_your_vote/presentation/ui/layout/app_scaffold.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/data/repositories/ballot_repository_impl.dart';
 
 final _log = Logger('ballot_entry_screen');
 
@@ -26,11 +27,14 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
   final _codeController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _ballotRepository = BallotRepositoryImpl();
+  final _eventRepository = EventRepositoryImpl();
   bool _isValidating = false;
+  late final Future<String?> _logoUrlFuture;
 
   @override
   void initState() {
     super.initState();
+    _logoUrlFuture = _fetchLogoUrl();
     if (widget.errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         SnackBarHelper.show(context, widget.errorMessage!, type: SnackType.error);
@@ -39,6 +43,15 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
   }
 
   @override
+  Future<String?> _fetchLogoUrl() async {
+    try {
+      final event = await _eventRepository.getCurrentEvent();
+      return event?.logoUrl;
+    } catch (_) {
+      return null;
+    }
+  }
+
   void dispose() {
     _codeController.dispose();
     super.dispose();
@@ -89,9 +102,13 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset(
-                    'assets/img/cos-logo.webp',
-                    height: 120,
+                  FutureBuilder<String?>(
+                    future: _logoUrlFuture,
+                    builder: (context, snapshot) {
+                      final url = snapshot.data;
+                      if (url == null) return const SizedBox.shrink();
+                      return Image.network(url, height: 120);
+                    },
                   ),
                   const SizedBox(height: 32),
                   Text(

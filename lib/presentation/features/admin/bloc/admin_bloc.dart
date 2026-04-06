@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:logging/logging.dart';
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/domain/repositories/event_repository.dart';
-import 'package:theatre_121/domain/repositories/ballot_repository.dart';
-import 'package:theatre_121/domain/services/google_sheets_service.dart';
+import 'package:cast_your_vote/core/storage_service.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/domain/repositories/event_repository.dart';
+import 'package:cast_your_vote/domain/repositories/ballot_repository.dart';
+import 'package:cast_your_vote/domain/services/google_sheets_service.dart';
 
 final _log = Logger('admin_bloc');
 
@@ -54,17 +56,23 @@ class CreateEvent extends AdminEvent {
   final List<String> participantNames;
   final int audienceBallotCount;
   final List<JudgeModel> judges;
+  final String? previousLogoUrl;
+  final Uint8List? logoBytes;
+  final String? logoMimeType;
 
   const CreateEvent({
     required this.name,
     required this.participantNames,
     required this.audienceBallotCount,
     required this.judges,
+    this.previousLogoUrl,
+    this.logoBytes,
+    this.logoMimeType,
   });
 
   @override
   List<Object?> get props =>
-      [name, participantNames, audienceBallotCount, judges];
+      [name, participantNames, audienceBallotCount, judges, previousLogoUrl];
 }
 
 class UpdateParticipantDonation extends AdminEvent {
@@ -86,6 +94,8 @@ class UpdateEvent extends AdminEvent {
   final List<ParticipantModel> participants;
   final List<JudgeModel> judges;
   final int audienceBallotCount;
+  final Uint8List? logoBytes;
+  final String? logoMimeType;
 
   const UpdateEvent({
     required this.eventId,
@@ -93,6 +103,8 @@ class UpdateEvent extends AdminEvent {
     required this.participants,
     required this.judges,
     required this.audienceBallotCount,
+    this.logoBytes,
+    this.logoMimeType,
   });
 
   @override
@@ -240,6 +252,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
   final EventRepository _eventRepository;
   final BallotRepository _ballotRepository;
   final GoogleSheetsService _sheetsService;
+  final StorageService _storageService;
 
   StreamSubscription<EventModel?>? _eventSubscription;
   StreamSubscription<List<BallotModel>>? _ballotsSubscription;
@@ -249,9 +262,11 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     required EventRepository eventRepository,
     required BallotRepository ballotRepository,
     required GoogleSheetsService sheetsService,
+    StorageService? storageService,
   })  : _eventRepository = eventRepository,
         _ballotRepository = ballotRepository,
         _sheetsService = sheetsService,
+        _storageService = storageService ?? StorageService(),
         super(const AdminInitial()) {
     on<StartWatching>(_onStartWatching);
     on<_EventUpdated>(_onEventUpdated);
@@ -357,7 +372,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         return entry.value.copyWith(id: 'j${entry.key + 1}');
       }).toList();
 
-      final newEvent = await _eventRepository.createEvent(
+      var newEvent = await _eventRepository.createEvent(
         EventModel(
           id: '',
           name: event.name,
@@ -365,8 +380,20 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           judges: judgesWithIds,
           status: EventStatus.open,
           createdAt: DateTime.now(),
+          logoUrl: event.previousLogoUrl,
         ),
       );
+
+      // Upload new logo if provided; otherwise previousLogoUrl is already set.
+      if (event.logoBytes != null && event.logoMimeType != null) {
+        final logoUrl = await _storageService.uploadEventLogo(
+          newEvent.id,
+          event.logoBytes!,
+          event.logoMimeType!,
+        );
+        newEvent = newEvent.copyWith(logoUrl: logoUrl);
+        await _eventRepository.updateEvent(newEvent);
+      }
 
       final ballots = await _ballotRepository.createBallotsAndReturn(
         eventId: newEvent.id,
@@ -397,8 +424,10 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       final existingParticipants = existingEvent.participants;
       final usedPIds = existingParticipants.map((p) => p.id).toSet();
       int nextPNum = existingParticipants.length + 1;
-      String _nextParticipantId() {
-        while (usedPIds.contains('p$nextPNum')) nextPNum++;
+      String nextParticipantId() {
+        while (usedPIds.contains('p$nextPNum')) {
+          nextPNum++;
+        }
         final id = 'p${nextPNum++}';
         usedPIds.add(id);
         return id;
@@ -407,7 +436,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       final updatedParticipants = event.participants.asMap().entries.map((entry) {
         final i = entry.key;
         final p = entry.value;
-        final id = p.id.isEmpty ? _nextParticipantId() : p.id;
+        final id = p.id.isEmpty ? nextParticipantId() : p.id;
         final existing = existingParticipants.firstWhereOrNull((ep) => ep.id == id);
         return ParticipantModel(
           id: id,
@@ -421,22 +450,35 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       // Assign IDs to new judges (empty id = new), preserving existing IDs.
       final usedJIds = existingEvent.judges.map((j) => j.id).toSet();
       int nextJNum = existingEvent.judges.length + 1;
-      String _nextJudgeId() {
-        while (usedJIds.contains('j$nextJNum')) nextJNum++;
+      String nextJudgeId() {
+        while (usedJIds.contains('j$nextJNum')) {
+          nextJNum++;
+        }
         final id = 'j${nextJNum++}';
         usedJIds.add(id);
         return id;
       }
 
       final updatedJudges = event.judges.map((j) {
-        return j.id.isEmpty ? j.copyWith(id: _nextJudgeId()) : j;
+        return j.id.isEmpty ? j.copyWith(id: nextJudgeId()) : j;
       }).toList();
+
+      // Upload new logo if provided.
+      String? logoUrl = existingEvent.logoUrl;
+      if (event.logoBytes != null && event.logoMimeType != null) {
+        logoUrl = await _storageService.uploadEventLogo(
+          existingEvent.id,
+          event.logoBytes!,
+          event.logoMimeType!,
+        );
+      }
 
       // Persist updated event document.
       final updatedEvent = existingEvent.copyWith(
         name: event.name,
         participants: updatedParticipants,
         judges: updatedJudges,
+        logoUrl: logoUrl,
       );
       await _eventRepository.updateEvent(updatedEvent);
 

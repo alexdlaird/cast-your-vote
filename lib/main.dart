@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:logging/logging.dart';
-import 'package:theatre_121/core/log_service.dart';
-import 'package:theatre_121/core/sentry_service.dart';
-import 'package:theatre_121/firebase_options.dart';
-import 'package:theatre_121/presentation/navigation/app_router.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/core/log_service.dart';
+import 'package:cast_your_vote/core/sentry_service.dart';
+import 'package:cast_your_vote/firebase_options.dart';
+import 'package:cast_your_vote/presentation/navigation/app_router.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 
 final _log = Logger('main');
 

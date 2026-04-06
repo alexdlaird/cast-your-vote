@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
-import 'package:theatre_121/data/models/judge_model.dart';
-import 'package:theatre_121/data/models/participant_model.dart';
-import 'package:theatre_121/data/models/voting_results_model.dart';
+import 'package:cast_your_vote/data/models/judge_model.dart';
+import 'package:cast_your_vote/data/models/participant_model.dart';
+import 'package:cast_your_vote/data/models/voting_results_model.dart';
 
 enum EventStatus { open, closed }
 
@@ -16,6 +16,7 @@ class EventModel extends Equatable {
   final String? largestDonationWinnerId;
   final String? mostDonationsWinnerId;
   final String? spreadsheetUrl;
+  final String? logoUrl;
   final VotingResults? votingResults;
 
   const EventModel({
@@ -28,6 +29,7 @@ class EventModel extends Equatable {
     this.largestDonationWinnerId,
     this.mostDonationsWinnerId,
     this.spreadsheetUrl,
+    this.logoUrl,
     this.votingResults,
   });
 
@@ -53,6 +55,7 @@ class EventModel extends Equatable {
       largestDonationWinnerId: nullIfEmpty(json['largestDonationWinnerId'] as String?),
       mostDonationsWinnerId: nullIfEmpty(json['mostDonationsWinnerId'] as String?),
       spreadsheetUrl: nullIfEmpty(json['spreadsheetUrl'] as String?),
+      logoUrl: nullIfEmpty(json['logoUrl'] as String?),
       votingResults: votingResultsJson != null
           ? VotingResults.fromJson(votingResultsJson)
           : null,
@@ -69,6 +72,7 @@ class EventModel extends Equatable {
       'largestDonationWinnerId': largestDonationWinnerId,
       'mostDonationsWinnerId': mostDonationsWinnerId,
       'spreadsheetUrl': spreadsheetUrl,
+      'logoUrl': logoUrl,
       'votingResults': votingResults?.toJson(),
     };
   }
@@ -87,6 +91,7 @@ class EventModel extends Equatable {
     String? largestDonationWinnerId,
     String? mostDonationsWinnerId,
     String? spreadsheetUrl,
+    String? logoUrl,
     VotingResults? votingResults,
     bool clearLargestDonationWinner = false,
     bool clearMostDonationsWinner = false,
@@ -106,6 +111,7 @@ class EventModel extends Equatable {
           ? null
           : (mostDonationsWinnerId ?? this.mostDonationsWinnerId),
       spreadsheetUrl: spreadsheetUrl ?? this.spreadsheetUrl,
+      logoUrl: logoUrl ?? this.logoUrl,
       votingResults: clearVotingResults
           ? null
           : (votingResults ?? this.votingResults),
@@ -123,6 +129,7 @@ class EventModel extends Equatable {
         largestDonationWinnerId,
         mostDonationsWinnerId,
         spreadsheetUrl,
+        logoUrl,
         votingResults,
       ];
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
-import 'package:theatre_121/core/log_formatter.dart';
+import 'package:cast_your_vote/core/log_formatter.dart';
 
 class LogService {
   static final LogService _instance = LogService._internal();

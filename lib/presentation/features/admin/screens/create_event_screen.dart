@@ -1,12 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:theatre_121/config/app_routes.dart';
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
-import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
-import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
+import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 
 class CreateEventScreen extends StatefulWidget {
   final String? editEventId;
@@ -15,6 +16,7 @@ class CreateEventScreen extends StatefulWidget {
   final List<ParticipantModel>? previousParticipants;
   final List<JudgeModel>? previousJudges;
   final int? previousAudienceCount;
+  final String? previousLogoUrl;
 
   const CreateEventScreen({
     super.key,
@@ -24,6 +26,7 @@ class CreateEventScreen extends StatefulWidget {
     this.previousParticipants,
     this.previousJudges,
     this.previousAudienceCount,
+    this.previousLogoUrl,
   });
 
   @override
@@ -41,6 +44,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final List<TextEditingController> _participantControllers = [];
   final List<FocusNode> _participantFocusNodes = [];
   final List<String?> _participantIds = [];
+
+  Uint8List? _logoBytes;
+  String? _logoMimeType;
+  String? _logoFileName;
 
   @override
   void initState() {
@@ -151,6 +158,30 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     }
   }
 
+  Future<void> _pickLogo() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    final ext = (file.extension ?? 'jpg').toLowerCase();
+    final mime = ext == 'png'
+        ? 'image/png'
+        : ext == 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+
+    setState(() {
+      _logoBytes = file.bytes;
+      _logoMimeType = mime;
+      _logoFileName = file.name;
+    });
+  }
+
   void _createEvent() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -251,6 +282,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             participantNames: participantNames,
             audienceBallotCount: int.parse(_audienceCountController.text),
             judges: judges,
+            previousLogoUrl: widget.previousLogoUrl,
+            logoBytes: _logoBytes,
+            logoMimeType: _logoMimeType,
           ),
         );
   }
@@ -271,6 +305,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             participants: participants,
             judges: judges,
             audienceBallotCount: int.parse(_audienceCountController.text),
+            logoBytes: _logoBytes,
+            logoMimeType: _logoMimeType,
           ),
         );
   }
@@ -463,18 +499,46 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              TextFormField(
-                controller: _eventNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Event Name',
-                  hintText: "Come Out Singin'",
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Required';
-                  }
-                  return null;
-                },
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _eventNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Event Name',
+                        hintText: "Come Out Singin'",
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Required';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: _pickLogo,
+                      icon: Icon(
+                        _logoBytes != null || widget.previousLogoUrl != null
+                            ? Icons.image
+                            : Icons.upload,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _logoBytes != null
+                            ? _logoFileName ?? 'Logo selected'
+                            : widget.previousLogoUrl != null
+                                ? 'Change Logo'
+                                : 'Upload Logo',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               TextFormField(

@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:theatre_121/domain/repositories/event_repository.dart';
-import 'package:theatre_121/data/models/models.dart';
+import 'package:cast_your_vote/domain/repositories/event_repository.dart';
+import 'package:cast_your_vote/data/models/models.dart';
 
 class EventRepositoryImpl implements EventRepository {
   final FirebaseFirestore _firestore;

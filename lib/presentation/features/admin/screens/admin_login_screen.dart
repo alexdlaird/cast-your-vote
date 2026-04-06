@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
-import 'package:theatre_121/core/google_auth_service.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
-import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
-import 'package:theatre_121/data/repositories/admin_repository.dart';
-import 'package:theatre_121/config/app_routes.dart';
+import 'package:cast_your_vote/core/google_auth_service.dart';
+import 'package:cast_your_vote/data/repositories/event_repository_impl.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
+import 'package:cast_your_vote/data/repositories/admin_repository.dart';
+import 'package:cast_your_vote/config/app_routes.dart';
 
 final _log = Logger('admin_login_screen');
 
@@ -20,7 +21,24 @@ class AdminLoginScreen extends StatefulWidget {
 class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final _adminRepository = AdminRepository();
   final _authService = GoogleAuthService();
+  final _eventRepository = EventRepositoryImpl();
   bool _isLoading = false;
+  late final Future<String?> _logoUrlFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _logoUrlFuture = _fetchLogoUrl();
+  }
+
+  Future<String?> _fetchLogoUrl() async {
+    try {
+      final event = await _eventRepository.getCurrentEvent();
+      return event?.logoUrl;
+    } catch (_) {
+      return null;
+    }
+  }
 
   void _showErrorSnackbar(String message) {
     if (!mounted) return;
@@ -78,9 +96,13 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Image.asset(
-                    'assets/img/cos-logo.webp',
-                    height: 100,
+                  FutureBuilder<String?>(
+                    future: _logoUrlFuture,
+                    builder: (context, snapshot) {
+                      final url = snapshot.data;
+                      if (url == null) return const SizedBox.shrink();
+                      return Image.network(url, height: 100);
+                    },
                   ),
                   const SizedBox(height: 32),
                   Text(

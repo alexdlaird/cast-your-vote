@@ -6,12 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:printing/printing.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:theatre_121/config/app_routes.dart';
-import 'package:theatre_121/presentation/ui/theme/app_theme.dart';
-import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
-import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/data/services/pdf_export_service_impl.dart';
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
+import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/data/services/pdf_export_service_impl.dart';
 
 final _log = Logger('ballot_codes_screen');
 

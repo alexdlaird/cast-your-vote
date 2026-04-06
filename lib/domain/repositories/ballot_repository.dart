@@ -1,4 +1,4 @@
-import 'package:theatre_121/data/models/models.dart';
+import 'package:cast_your_vote/data/models/models.dart';
 
 abstract class BallotRepository {
   Future<BallotModel?> getBallot(String code);

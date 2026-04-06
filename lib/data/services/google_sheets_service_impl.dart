@@ -1,7 +1,7 @@
 import 'package:googleapis/sheets/v4.dart' as sheets;
-import 'package:theatre_121/core/google_auth_service.dart';
-import 'package:theatre_121/data/models/models.dart';
-import 'package:theatre_121/domain/services/google_sheets_service.dart';
+import 'package:cast_your_vote/core/google_auth_service.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/domain/services/google_sheets_service.dart';
 
 class GoogleSheetsServiceImpl implements GoogleSheetsService {
   final _authService = GoogleAuthService();

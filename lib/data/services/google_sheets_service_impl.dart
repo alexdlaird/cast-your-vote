@@ -12,35 +12,47 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
   Future<String> createResultsSpreadsheet({
     required EventModel event,
     required List<BallotModel> ballots,
+    String? existingSpreadsheetId,
   }) async {
     final client = await _authService.getAuthClient();
     final sheetsApi = sheets.SheetsApi(client);
 
-    final eventDate = event.createdAt;
-    final dateStr =
-        '${eventDate.year}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}';
-    final shortCode = _generateShortCode(event.id);
+    final String spreadsheetId;
 
-    final spreadsheet = await sheetsApi.spreadsheets.create(
-      sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(
-          title: '${event.name} - $dateStr - $shortCode - Voting Results',
+    if (existingSpreadsheetId != null) {
+      spreadsheetId = existingSpreadsheetId;
+      await sheetsApi.spreadsheets.values.batchClear(
+        sheets.BatchClearValuesRequest(
+          ranges: ['Audience Votes!A1:ZZ', 'Judge Votes!A1:ZZ', 'Summary!A1:ZZ'],
         ),
-        sheets: [
-          sheets.Sheet(
-            properties: sheets.SheetProperties(title: 'Audience Votes'),
-          ),
-          sheets.Sheet(
-            properties: sheets.SheetProperties(title: 'Judge Votes'),
-          ),
-          sheets.Sheet(
-            properties: sheets.SheetProperties(title: 'Summary'),
-          ),
-        ],
-      ),
-    );
+        spreadsheetId,
+      );
+    } else {
+      final eventDate = event.createdAt;
+      final dateStr =
+          '${eventDate.year}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}';
+      final shortCode = _generateShortCode(event.id);
 
-    final spreadsheetId = spreadsheet.spreadsheetId!;
+      final spreadsheet = await sheetsApi.spreadsheets.create(
+        sheets.Spreadsheet(
+          properties: sheets.SpreadsheetProperties(
+            title: '${event.name} - $dateStr - $shortCode - Voting Results',
+          ),
+          sheets: [
+            sheets.Sheet(
+              properties: sheets.SheetProperties(title: 'Audience Votes'),
+            ),
+            sheets.Sheet(
+              properties: sheets.SheetProperties(title: 'Judge Votes'),
+            ),
+            sheets.Sheet(
+              properties: sheets.SheetProperties(title: 'Summary'),
+            ),
+          ],
+        ),
+      );
+      spreadsheetId = spreadsheet.spreadsheetId!;
+    }
 
     final audienceBallots =
         ballots.where((b) => b.isAudience && b.submitted).toList();
@@ -108,7 +120,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     final judgeRows = <List<Object?>>[];
     if (isMultiRound) {
       judgeRows.add([
-        'Judge', 'Round', 'Ballot Code', 'Participant',
+        'Judge', 'Round', 'Ballot Code', 'Performer',
         'Singing (1-5)', 'Performance (1-5)', 'Song Fit (1-5)', 'Weight (1-5)',
         'Adj Singing', 'Adj Performance', 'Adj Song Fit',
         'Weight Ratio', 'Total',
@@ -116,7 +128,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       ]);
     } else {
       judgeRows.add([
-        'Judge', 'Ballot Code', 'Participant',
+        'Judge', 'Ballot Code', 'Performer',
         'Singing (1-5)', 'Performance (1-5)', 'Song Fit (1-5)', 'Weight (1-5)',
         'Adj Singing', 'Adj Performance', 'Adj Song Fit',
         'Weight Ratio', 'Total',
@@ -188,7 +200,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     //                             Jdg R1 | Jdg R2 | … | Judge Total | … | Combined
     final summaryRows = <List<Object?>>[];
     if (isMultiRound) {
-      final header = <Object?>['Participant'];
+      final header = <Object?>['Performer'];
       for (final r in rounds) {
         header.add('Audience R${r.order}');
       }
@@ -241,9 +253,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
         // Judge per-round: SUMIF where Participant=name AND Round=Rn
         // Total is column M in multi-round layout (D=Participant, B=Round).
+        // Start ranges from row 2 to exclude the header row.
         for (final round in rounds) {
           rowData.add(
-            "=SUMPRODUCT(('Judge Votes'!D:D=\"${p.displayName}\")*('Judge Votes'!B:B=\"R${round.order}\")*'Judge Votes'!M:M)",
+            "=SUMPRODUCT(('Judge Votes'!D2:D=\"${p.displayName}\")*('Judge Votes'!B2:B=\"R${round.order}\")*'Judge Votes'!M2:M)",
           );
         }
 
@@ -260,7 +273,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       }
     } else {
       summaryRows.add([
-        'Participant',
+        'Performer',
         'Audience Total',
         'Judge Total',
         'Donation',
@@ -279,7 +292,8 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
           p.displayName,
           "=SUM('Audience Votes'!${col}2:$col)",
           // Total is column L in single-round layout (C=Participant).
-          "=SUMIF('Judge Votes'!C:C,\"${p.displayName}\",'Judge Votes'!L:L)",
+          // Start ranges from row 2 to exclude the header row.
+          "=SUMIF('Judge Votes'!C2:C,\"${p.displayName}\",'Judge Votes'!L2:L)",
           donation,
           highestDonation,
           mostDonations,
@@ -333,7 +347,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
   }
 
   @override
-  Future<List<ParticipantResult>> fetchResultsFromSpreadsheet({
+  Future<FetchedRankings> fetchResultsFromSpreadsheet({
     required String spreadsheetUrl,
   }) async {
     final client = await _authService.getAuthClient();
@@ -347,47 +361,45 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
     final spreadsheetId = pathSegments[dIndex + 1];
 
-    // Fetch the Summary sheet — read enough columns to cover multi-round layout.
-    // We use column A (name) and last two non-bonus columns: always Combined is
-    // the last column, Audience Total and Judge Total are 3 and 2 cols before it.
-    // Reading A:ZZ is safe; Sheets returns only populated columns.
     final response = await sheetsApi.spreadsheets.values.get(
       spreadsheetId,
       'Summary!A1:ZZ200',
     );
 
     final values = response.values;
-    if (values == null || values.length < 2) return [];
+    if (values == null || values.length < 2) return const FetchedRankings(rankedNames: []);
 
-    // Parse header row to find column indices
     final header = values[0].map((h) => h.toString()).toList();
     const nameIdx = 0;
-    final audTotalIdx = header.indexOf('Audience Total');
-    final jdgTotalIdx = header.indexOf('Judge Total');
     final combinedIdx = header.indexOf('Combined');
 
-    if (audTotalIdx == -1 || jdgTotalIdx == -1 || combinedIdx == -1) return [];
+    if (combinedIdx == -1) return const FetchedRankings(rankedNames: []);
 
-    final results = <ParticipantResult>[];
+    // Use scores only for sorting and tie detection; discard afterwards.
+    final scored = <({String name, double score})>[];
     for (var i = 1; i < values.length; i++) {
       final row = values[i];
       if (row.isEmpty || row[nameIdx].toString().isEmpty) continue;
-      results.add(ParticipantResult(
-        id: 'p$i',
-        name: row[nameIdx].toString(),
-        audienceTotal: audTotalIdx < row.length
-            ? int.tryParse(row[audTotalIdx].toString()) ?? 0
-            : 0,
-        judgeTotal: jdgTotalIdx < row.length
-            ? int.tryParse(row[jdgTotalIdx].toString()) ?? 0
-            : 0,
-        combinedScore: combinedIdx < row.length
-            ? double.tryParse(row[combinedIdx].toString()) ?? 0
-            : 0,
-      ));
+      final score = combinedIdx < row.length
+          ? double.tryParse(row[combinedIdx].toString()) ?? 0.0
+          : 0.0;
+      scored.add((name: row[nameIdx].toString(), score: score));
     }
 
-    results.sort((a, b) => a.combinedScore.compareTo(b.combinedScore));
-    return results;
+    scored.sort((a, b) => a.score.compareTo(b.score));
+
+    final rankedNames = scored.map((r) => r.name).toList();
+    if (rankedNames.isEmpty) return const FetchedRankings(rankedNames: []);
+
+    final lowestScore = scored.last.score;
+    final tiedNames = scored
+        .where((r) => r.score == lowestScore)
+        .map((r) => r.name)
+        .toList();
+
+    return FetchedRankings(
+      rankedNames: rankedNames,
+      tiedNames: tiedNames.length > 1 ? tiedNames : [],
+    );
   }
 }

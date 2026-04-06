@@ -304,7 +304,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Participant ${_currentParticipantIndex + 1} of $participantCount',
+                'Performer ${_currentParticipantIndex + 1} of $participantCount',
                 style: context.textTheme.bodySmall,
               ),
               Text(
@@ -495,7 +495,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'This participant dropped out',
+                    'This performer dropped out',
                     style: context.textTheme.bodyLarge,
                     textAlign: TextAlign.center,
                   ),
@@ -731,7 +731,7 @@ class _CategoryCommentFieldState extends State<_CategoryCommentField> {
       autofocus: true,
       maxLines: 2,
       decoration: const InputDecoration(
-        hintText: 'Optional comments for participant ...',
+        hintText: 'Optional comments for performer ...',
         isDense: true,
       ),
     );

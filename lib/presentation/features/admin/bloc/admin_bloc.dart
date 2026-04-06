@@ -594,12 +594,14 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       // any last-second submissions (no new submissions possible after close)
       final ballotData = await _ballotRepository.getEventBallots(eventData.id);
 
-      // Step 3: Export ballots to Google Sheets
+      // Step 3: Export ballots to Google Sheets (overwrite if one already exists)
       currentState = currentState.copyWith(closingProgress: ClosingProgress.exportingBallots);
       emit(currentState);
+      final existingId = _spreadsheetIdFromUrl(eventData.spreadsheetUrl);
       final spreadsheetUrl = await _sheetsService.createResultsSpreadsheet(
         event: eventData,
         ballots: ballotData,
+        existingSpreadsheetId: existingId,
       );
       await _eventRepository.updateSpreadsheetUrl(eventData.id, spreadsheetUrl);
 
@@ -679,44 +681,41 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     }
   }
 
+  String? _spreadsheetIdFromUrl(String? url) {
+    if (url == null) return null;
+    final segments = Uri.tryParse(url)?.pathSegments ?? [];
+    final dIndex = segments.indexOf('d');
+    if (dIndex == -1 || dIndex + 1 >= segments.length) return null;
+    return segments[dIndex + 1];
+  }
+
   Future<VotingResults> _fetchResults({
     required EventModel event,
     required String spreadsheetUrl,
   }) async {
-    final fetchedResults = await _sheetsService.fetchResultsFromSpreadsheet(
+    final fetched = await _sheetsService.fetchResultsFromSpreadsheet(
       spreadsheetUrl: spreadsheetUrl,
     );
 
-    // Match fetched results to participant IDs by name
     final participants = event.participants;
-    final rankings = fetchedResults.map((result) {
+    final rankings = fetched.rankedNames.map((name) {
       final participant = participants.firstWhere(
-        (p) => p.displayName == result.name,
-        orElse: () => ParticipantModel(id: result.id, name: result.name, order: 0),
+        (p) => p.displayName == name,
+        orElse: () => ParticipantModel(id: '', name: name, order: 0),
       );
-      return ParticipantResult(
-        id: participant.id,
-        name: result.name,
-        audienceTotal: result.audienceTotal,
-        judgeTotal: result.judgeTotal,
-        combinedScore: result.combinedScore,
-      );
+      return ParticipantResult(id: participant.id, name: name);
     }).toList();
 
-    // Determine eliminated/tied participants
     String? eliminatedId;
     List<String> tiedIds = [];
     if (rankings.isNotEmpty) {
-      final lowestScore = rankings.last.combinedScore;
-      final lowestScorers = rankings
-          .where((r) => r.combinedScore == lowestScore)
-          .map((r) => r.id)
-          .toList();
-
-      if (lowestScorers.length > 1) {
-        tiedIds = lowestScorers;
+      if (fetched.tiedNames.isNotEmpty) {
+        tiedIds = rankings
+            .where((r) => fetched.tiedNames.contains(r.name))
+            .map((r) => r.id)
+            .toList();
       } else {
-        eliminatedId = lowestScorers.first;
+        eliminatedId = rankings.last.id;
       }
     }
 

@@ -3,25 +3,16 @@ import 'package:equatable/equatable.dart';
 class ParticipantResult extends Equatable {
   final String id;
   final String name;
-  final int audienceTotal;
-  final int judgeTotal;
-  final double combinedScore;
 
   const ParticipantResult({
     required this.id,
     required this.name,
-    required this.audienceTotal,
-    required this.judgeTotal,
-    required this.combinedScore,
   });
 
   factory ParticipantResult.fromJson(Map<String, dynamic> json) {
     return ParticipantResult(
       id: json['id'] as String,
       name: json['name'] as String,
-      audienceTotal: json['audienceTotal'] as int,
-      judgeTotal: json['judgeTotal'] as int,
-      combinedScore: (json['combinedScore'] as num).toDouble(),
     );
   }
 
@@ -29,14 +20,11 @@ class ParticipantResult extends Equatable {
     return {
       'id': id,
       'name': name,
-      'audienceTotal': audienceTotal,
-      'judgeTotal': judgeTotal,
-      'combinedScore': combinedScore,
     };
   }
 
   @override
-  List<Object?> get props => [id, name, audienceTotal, judgeTotal, combinedScore];
+  List<Object?> get props => [id, name];
 }
 
 class VotingResults extends Equatable {
@@ -56,10 +44,10 @@ class VotingResults extends Equatable {
           .map((r) => ParticipantResult.fromJson(r as Map<String, dynamic>))
           .toList(),
       eliminatedParticipantId: json['eliminatedParticipantId'] as String?,
-      tiedParticipantIds: (json['tiedParticipantIds'] as List<dynamic>?)
-              ?.map((id) => id as String)
-              .toList() ??
-          const [],
+      tiedParticipantIds: [
+        for (final id in (json['tiedParticipantIds'] as List<dynamic>?) ?? [])
+          id as String,
+      ],
     );
   }
 

@@ -220,7 +220,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (emptyParticipantIndices.isNotEmpty) {
       SnackBarHelper.show(
         context,
-        'Fill in all participant names (missing: ${emptyParticipantIndices.join(", ")})',
+        'Fill in all performer names (missing: ${emptyParticipantIndices.join(", ")})',
         type: SnackType.error,
       );
       return;
@@ -441,7 +441,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               controller: _participantControllers[index],
               focusNode: _participantFocusNodes[index],
               decoration: InputDecoration(
-                hintText: 'Participant ${index + 1} name',
+                hintText: 'Performer ${index + 1} name',
                 isDense: true,
               ),
               onFieldSubmitted: (_) {
@@ -455,7 +455,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             onPressed: () => _removeParticipantField(index),
             icon: const Icon(Icons.delete_outline),
             color: context.colorScheme.error,
-            tooltip: 'Remove participant',
+            tooltip: 'Remove performer',
             focusNode: FocusNode(skipTraversal: true),
           ),
         ],
@@ -583,14 +583,14 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Participants (in order of performance)',
+                  'Performers (in order of performance)',
                   style: context.textTheme.titleMedium,
                 ),
                 IconButton(
                   onPressed: _addParticipantField,
                   icon: const Icon(Icons.add_circle),
                   color: context.colorScheme.primary,
-                  tooltip: 'Add participant',
+                  tooltip: 'Add performer',
                   focusNode: FocusNode(skipTraversal: true),
                 ),
               ],

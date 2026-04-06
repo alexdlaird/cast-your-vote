@@ -248,7 +248,7 @@ class AdminDashboardView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '${event.participantCount} Participants',
+              '${event.participantCount} Performers',
               style: context.textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
@@ -431,12 +431,6 @@ class AdminDashboardView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text(
-                      'Score: ${tiedParticipants.first.combinedScore}',
-                      style: context.textTheme.bodyMedium?.copyWith(
-                        color: Colors.orange.shade700,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -451,7 +445,7 @@ class AdminDashboardView extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.arrow_downward, color: Colors.red.shade700),
+                    Icon(Icons.person_remove, color: Colors.red.shade700),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -473,12 +467,6 @@ class AdminDashboardView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text(
-                      'Score: ${eliminated.combinedScore}',
-                      style: context.textTheme.titleMedium?.copyWith(
-                        color: Colors.red.shade700,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -493,71 +481,7 @@ class AdminDashboardView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            ...results.rankings.asMap().entries.map((entry) {
-              final index = entry.key;
-              final result = entry.value;
-              final isEliminated = result.id == results.eliminatedParticipantId;
-              final isTied = results.tiedParticipantIds.contains(result.id);
-              final highlightColor = isTied
-                  ? Colors.orange.shade700
-                  : isEliminated
-                      ? Colors.red.shade700
-                      : null;
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      child: Text(
-                        '${index + 1}.',
-                        style: context.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: highlightColor,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        result.name,
-                        style: context.textTheme.bodyMedium?.copyWith(
-                          color: highlightColor,
-                          decoration: isEliminated
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'A: ${result.audienceTotal}',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'J: ${result.judgeTotal}',
-                      style: context.textTheme.bodySmall?.copyWith(
-                        color: context.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        '${result.combinedScore}',
-                        style: context.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isEliminated ? Colors.red.shade700 : null,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+            _buildRankingsColumns(context, results),
           ],
         ),
       ),
@@ -585,7 +509,7 @@ class AdminDashboardView extends StatelessWidget {
                   ? null
                   : () => isVotingOpen
                       ? _confirmCloseVoting(context, event!)
-                      : context.read<AdminBloc>().add(const CloseVoting()),
+                      : _confirmReExport(context, event!),
               style: ElevatedButton.styleFrom(
                 backgroundColor: context.colorScheme.error,
                 foregroundColor: context.colorScheme.onError,
@@ -697,7 +621,7 @@ class AdminDashboardView extends StatelessWidget {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
-            hint: const Text('Select participant'),
+            hint: const Text('Select performer'),
             items: participants
                 .map((p) => DropdownMenuItem<String>(
                       value: p.id,
@@ -791,6 +715,117 @@ class AdminDashboardView extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildRankingsColumns(BuildContext context, VotingResults results) {
+    final rankings = results.rankings;
+    final half = (rankings.length / 2).ceil();
+    final leftColumn = rankings.sublist(0, half);
+    final rightColumn = rankings.sublist(half);
+
+    Widget rankingItem(int index, ParticipantResult result) {
+      final isEliminated = result.id == results.eliminatedParticipantId;
+      final isTied = results.tiedParticipantIds.contains(result.id);
+      final highlightColor = isTied
+          ? Colors.orange.shade700
+          : isEliminated
+              ? Colors.red.shade700
+              : null;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '${index + 1}.',
+                style: context.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: highlightColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                result.name,
+                style: context.textTheme.bodyMedium?.copyWith(
+                  color: highlightColor,
+                  decoration: isEliminated ? TextDecoration.lineThrough : null,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < leftColumn.length; i++)
+                rankingItem(i, leftColumn[i]),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < rightColumn.length; i++)
+                rankingItem(half + i, rightColumn[i]),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _confirmReExport(BuildContext context, EventModel event) {
+    final hasExisting = event.spreadsheetUrl != null;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Re-Export Ballots?'),
+        content: Text(
+          hasExisting
+              ? "This will re-export ballot data and overwrite any custom changes you've made to the Google Sheet for this event. Do you want to continue?"
+              : 'This will export ballot data to a new Google Sheet and calculate results.',
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    context.read<AdminBloc>().add(const CloseVoting());
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.colorScheme.error,
+                    foregroundColor: context.colorScheme.onError,
+                  ),
+                  child: Text(hasExisting ? 'Overwrite' : 'Export'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ParticipantChip extends StatelessWidget {
@@ -862,7 +897,7 @@ class _ParticipantChip extends StatelessWidget {
             opacity: isEditable ? 1.0 : 0.4,
             child: Tooltip(
               message: isEditable
-                  ? (isDroppedOut ? 'Restore participant' : 'Mark as dropped out')
+                  ? (isDroppedOut ? 'Restore performer' : 'Mark as dropped out')
                   : '',
               child: InkWell(
                 onTap: isEditable ? onDropoutTap : null,

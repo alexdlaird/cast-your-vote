@@ -1,6 +1,7 @@
-# Theatre 121
+# Cast Your Vote!
 
-A voting app for Theatre 121's "Come Out Singin'" karaoke competition. Audience members and judges submit ballots via QR codes, and admins can manage events and export results.
+A voting app for an event with participants, an audience, and judges! Each event can have one or more rounds. Audience
+members and judges submit ballots via QR codes, and admins can manage events and export results.
 
 ## Prerequisites
 

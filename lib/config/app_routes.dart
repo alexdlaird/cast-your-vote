@@ -5,7 +5,4 @@ class AppRoutes {
   static const String adminLogin = '/admin/login';
   static const String adminBallots = '/admin/ballots';
   static const String adminCreateEvent = '/admin/create';
-
-  static const String externalDonate = 'https://theatre121.org/donate';
-  static const String externalTheatre121 = 'https://theatre121.org';
 }

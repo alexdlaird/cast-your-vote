@@ -18,6 +18,7 @@ abstract class BallotRepository {
   Future<List<BallotModel>> getSubmittedBallots(String eventId);
   Future<void> deleteBallot(String code);
   Future<void> deleteEventBallots(String eventId);
+  Future<void> clearParticipantVotes(String eventId, String participantId);
   Stream<BallotModel?> watchBallot(String code);
   Stream<List<BallotModel>> watchEventBallots(String eventId);
 }

@@ -1,5 +1,3 @@
-// Copyright (c) 2024 Theatre 121. MIT License.
-
 import 'package:equatable/equatable.dart';
 
 class JudgeModel extends Equatable {

@@ -48,7 +48,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     // Pre-populate from previous event or use defaults
     _eventNameController = TextEditingController(
-      text: widget.previousEventName ?? 'Theatre 121',
+      text: widget.previousEventName ?? 'Cast Your Vote!',
     );
     _audienceCountController = TextEditingController(
       text: (widget.previousAudienceCount ?? 100).toString(),

@@ -178,6 +178,28 @@ class BallotRepositoryImpl implements BallotRepository {
   }
 
   @override
+  Future<void> clearParticipantVotes(
+    String eventId,
+    String participantId,
+  ) async {
+    final snapshot = await _ballotsCollection
+        .where('eventId', isEqualTo: eventId)
+        .where('type', isEqualTo: 'audience')
+        .get();
+
+    for (var i = 0; i < snapshot.docs.length; i += 500) {
+      final batch = _firestore.batch();
+      final end = (i + 500 < snapshot.docs.length) ? i + 500 : snapshot.docs.length;
+      for (var j = i; j < end; j++) {
+        batch.update(snapshot.docs[j].reference, {
+          'audienceVotes.$participantId': FieldValue.delete(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
+  @override
   Future<void> deleteEventBallots(String eventId) async {
     final snapshot = await _ballotsCollection
         .where('eventId', isEqualTo: eventId)

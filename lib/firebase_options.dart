@@ -61,5 +61,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'theatre-121.firebasestorage.app',
     measurementId: 'G-XM6K1B9JEK',
   );
-
 }

@@ -91,23 +91,39 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
 
     // ── Judge Votes sheet ─────────────────────────────────────────────────────
-    // Scores are inverted: (6 - score) * 3 so higher raw = lower contribution,
-    // keeping totals aligned with audience ranking (higher = worse).
+    // Raw scores (1–5) are written as data so admins can audit them as
+    // necessary. Adjusted scores, weight ratio, and total are spreadsheet
+    // formulas so they recalculate automatically when overrides are made.
+    //
+    // Single round column layout:
+    //   A: Judge | B: Ballot Code | C: Participant
+    //   D: Singing (1-5) | E: Performance (1-5) | F: Song Fit (1-5)
+    //   G: Weight (1-5)
+    //   H: Adj Singing =(6-D)*3 | I: Adj Performance | J: Adj Song Fit
+    //   K: Weight Ratio =G/5 | L: Total =(H+I+J)*K
+    //   M: Singing Comments | N: Performance Comments | O: Song Fit Comments
+    //
+    // Multi-round inserts a Round column at B, shifting scores to E–H,
+    // formulas to I–M, comments to N–P.
     final judgeRows = <List<Object?>>[];
-    judgeRows.add([
-      'Judge',
-      if (isMultiRound) 'Round',
-      'Ballot Code',
-      'Participant',
-      'Singing',
-      'Performance',
-      'Song Fit',
-      'Weight',
-      'Total',
-      'Singing Comments',
-      'Performance Comments',
-      'Song Fit Comments',
-    ]);
+    if (isMultiRound) {
+      judgeRows.add([
+        'Judge', 'Round', 'Ballot Code', 'Participant',
+        'Singing (1-5)', 'Performance (1-5)', 'Song Fit (1-5)', 'Weight (1-5)',
+        'Adj Singing', 'Adj Performance', 'Adj Song Fit',
+        'Weight Ratio', 'Total',
+        'Singing Comments', 'Performance Comments', 'Song Fit Comments',
+      ]);
+    } else {
+      judgeRows.add([
+        'Judge', 'Ballot Code', 'Participant',
+        'Singing (1-5)', 'Performance (1-5)', 'Song Fit (1-5)', 'Weight (1-5)',
+        'Adj Singing', 'Adj Performance', 'Adj Song Fit',
+        'Weight Ratio', 'Total',
+        'Singing Comments', 'Performance Comments', 'Song Fit Comments',
+      ]);
+    }
+
     for (final ballot in judgeBallots) {
       if (isMultiRound) {
         for (final round in rounds) {
@@ -115,21 +131,21 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
           for (final p in participants) {
             final vote = votes[p.id];
             if (vote != null) {
-              final singing = (6 - vote.singing) * 3;
-              final performance = (6 - vote.performance) * 3;
-              final songFit = (6 - vote.songFit) * 3;
-              final weightRatio = ballot.judgeWeight / 5.0;
-              final total = (singing + performance + songFit) * weightRatio;
+              final r = judgeRows.length + 1;
               judgeRows.add([
                 ballot.judgeName ?? ballot.code,
                 'R${round.order}',
                 ballot.code,
                 p.displayName,
-                singing,
-                performance,
-                songFit,
-                weightRatio,
-                total,
+                vote.singing,
+                vote.performance,
+                vote.songFit,
+                ballot.judgeWeight,
+                '=(6-E$r)*3',
+                '=(6-F$r)*3',
+                '=(6-G$r)*3',
+                '=H$r/5',
+                '=(I$r+J$r+K$r)*L$r',
                 vote.singingComments,
                 vote.performanceComments,
                 vote.songFitComments,
@@ -143,20 +159,20 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         for (final p in participants) {
           final vote = votes[p.id];
           if (vote != null) {
-            final singing = (6 - vote.singing) * 3;
-            final performance = (6 - vote.performance) * 3;
-            final songFit = (6 - vote.songFit) * 3;
-            final weightRatio = ballot.judgeWeight / 5.0;
-            final total = (singing + performance + songFit) * weightRatio;
+            final r = judgeRows.length + 1;
             judgeRows.add([
               ballot.judgeName ?? ballot.code,
               ballot.code,
               p.displayName,
-              singing,
-              performance,
-              songFit,
-              weightRatio,
-              total,
+              vote.singing,
+              vote.performance,
+              vote.songFit,
+              ballot.judgeWeight,
+              '=(6-D$r)*3',
+              '=(6-E$r)*3',
+              '=(6-F$r)*3',
+              '=G$r/5',
+              '=(H$r+I$r+J$r)*K$r',
               vote.singingComments,
               vote.performanceComments,
               vote.songFitComments,
@@ -224,9 +240,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         rowData.add('=SUM($audStartCol$row:$audEndCol$row)');
 
         // Judge per-round: SUMIF where Participant=name AND Round=Rn
+        // Total is column M in multi-round layout (D=Participant, B=Round).
         for (final round in rounds) {
           rowData.add(
-            "=SUMPRODUCT(('Judge Votes'!D:D=\"${p.displayName}\")*('Judge Votes'!B:B=\"R${round.order}\")*'Judge Votes'!I:I)",
+            "=SUMPRODUCT(('Judge Votes'!D:D=\"${p.displayName}\")*('Judge Votes'!B:B=\"R${round.order}\")*'Judge Votes'!M:M)",
           );
         }
 
@@ -261,7 +278,8 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         summaryRows.add([
           p.displayName,
           "=SUM('Audience Votes'!${col}2:$col)",
-          "=SUMIF('Judge Votes'!C:C,\"${p.displayName}\",'Judge Votes'!H:H)",
+          // Total is column L in single-round layout (C=Participant).
+          "=SUMIF('Judge Votes'!C:C,\"${p.displayName}\",'Judge Votes'!L:L)",
           donation,
           highestDonation,
           mostDonations,

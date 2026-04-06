@@ -6,7 +6,7 @@ export, and event-based eliminations.
 ## Prerequisites
 
 - Dart & Flutter
-- Firebase project (Firestore)
+- Firebase (for one-click deployment)
 
 ## Getting Started
 

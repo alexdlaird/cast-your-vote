@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -70,29 +72,57 @@ class AppRouter {
           GoRoute(
             path: AppRoutes.adminCreateEvent,
             builder: (context, state) {
+              final isEditMode = state.uri.queryParameters['edit'] == 'true';
               final adminState = context.read<AdminBloc>().state;
+
+              String? editEventId;
               String? previousEventName;
-              List<String>? previousParticipants;
+              List<ParticipantModel>? previousParticipants;
               List<JudgeModel>? previousJudges;
               int? previousAudienceCount;
               bool hasExistingEvent = false;
 
               if (adminState is AdminLoaded && adminState.currentEvent != null) {
-                hasExistingEvent = true;
-                previousEventName = adminState.currentEvent!.name;
+                final currentEvent = adminState.currentEvent!;
 
-                // Filter out eliminated participant if there's a clear elimination (no tie)
-                final eliminatedId = adminState.votingResults?.eliminatedParticipantId;
-                previousParticipants = adminState.currentEvent!.participants
-                    .where((p) => eliminatedId == null || p.id != eliminatedId)
-                    .map((p) => p.name)
-                    .toList();
+                if (isEditMode) {
+                  // Edit mode: preserve participant order and IDs.
+                  editEventId = currentEvent.id;
+                  previousEventName = currentEvent.name;
+                  previousParticipants = List<ParticipantModel>.from(
+                    currentEvent.participants,
+                  )..sort((a, b) => a.order.compareTo(b.order));
+                  previousJudges = currentEvent.judges;
+                  previousAudienceCount = adminState.audienceBallotCount;
+                } else {
+                  // Create new mode: shuffle participants, reset IDs for the new event.
+                  hasExistingEvent = true;
+                  previousEventName = currentEvent.name;
 
-                previousJudges = adminState.currentEvent!.judges;
-                previousAudienceCount = adminState.audienceBallotCount;
+                  final eliminatedId =
+                      adminState.votingResults?.eliminatedParticipantId;
+                  final filtered = currentEvent.participants
+                      .where((p) => eliminatedId == null || p.id != eliminatedId)
+                      .toList()
+                    ..shuffle(Random());
+
+                  previousParticipants = filtered
+                      .asMap()
+                      .entries
+                      .map((entry) => ParticipantModel(
+                            id: '',
+                            name: entry.value.name,
+                            order: entry.key + 1,
+                          ))
+                      .toList();
+
+                  previousJudges = currentEvent.judges;
+                  previousAudienceCount = adminState.audienceBallotCount;
+                }
               }
 
               return CreateEventScreen(
+                editEventId: editEventId,
                 hasExistingEvent: hasExistingEvent,
                 previousEventName: previousEventName,
                 previousParticipants: previousParticipants,

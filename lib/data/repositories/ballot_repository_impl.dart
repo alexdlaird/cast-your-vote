@@ -114,6 +114,7 @@ class BallotRepositoryImpl implements BallotRepository {
         eventId: eventId,
         submitted: false,
         createdAt: now,
+        judgeId: judges[i].id,
         judgeName: judges[i].name,
         judgeWeight: judges[i].weight,
       ));
@@ -169,6 +170,11 @@ class BallotRepositoryImpl implements BallotRepository {
         .map((doc) => BallotModel.fromJson(doc.data(), doc.id))
         .toList()
       ..sort((a, b) => a.code.compareTo(b.code));
+  }
+
+  @override
+  Future<void> deleteBallot(String code) async {
+    await _ballotsCollection.doc(code).delete();
   }
 
   @override

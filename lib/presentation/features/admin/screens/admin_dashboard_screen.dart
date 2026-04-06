@@ -603,6 +603,14 @@ class AdminDashboardView extends StatelessWidget {
                       ? 'Close Voting'
                       : 'Re-Export Ballots'),
             ),
+            if (isVotingOpen) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => context.go('${AppRoutes.adminCreateEvent}?edit=true'),
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit Event'),
+              ),
+            ],
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () => _navigateToCreateEvent(context),
@@ -828,16 +836,15 @@ class _ParticipantChip extends StatelessWidget {
                   : null,
             ),
           ),
-          if (isEditable) ...[
-            const SizedBox(width: 4),
-            Tooltip(
-              message: isDroppedOut
-                  ? ''
-                  : participant.hasDonation
-                      ? 'Remove donation'
-                      : 'Mark donation received',
+          const SizedBox(width: 4),
+          Opacity(
+            opacity: isEditable ? 1.0 : 0.4,
+            child: Tooltip(
+              message: (isEditable && !isDroppedOut)
+                  ? (participant.hasDonation ? 'Remove donation' : 'Mark donation received')
+                  : '',
               child: InkWell(
-                onTap: isDroppedOut ? null : onDonationTap,
+                onTap: (isEditable && !isDroppedOut) ? onDonationTap : null,
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
@@ -852,12 +859,15 @@ class _ParticipantChip extends StatelessWidget {
                 ),
               ),
             ),
-            Tooltip(
-              message: isDroppedOut
-                  ? 'Restore participant'
-                  : 'Mark as dropped out',
+          ),
+          Opacity(
+            opacity: isEditable ? 1.0 : 0.4,
+            child: Tooltip(
+              message: isEditable
+                  ? (isDroppedOut ? 'Restore participant' : 'Mark as dropped out')
+                  : '',
               child: InkWell(
-                onTap: onDropoutTap,
+                onTap: isEditable ? onDropoutTap : null,
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
@@ -872,7 +882,7 @@ class _ParticipantChip extends StatelessWidget {
                 ),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );

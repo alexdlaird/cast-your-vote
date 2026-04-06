@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,14 +9,16 @@ import 'package:theatre_121/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:theatre_121/presentation/features/admin/bloc/admin_bloc.dart';
 
 class CreateEventScreen extends StatefulWidget {
+  final String? editEventId;
   final bool hasExistingEvent;
   final String? previousEventName;
-  final List<String>? previousParticipants;
+  final List<ParticipantModel>? previousParticipants;
   final List<JudgeModel>? previousJudges;
   final int? previousAudienceCount;
 
   const CreateEventScreen({
     super.key,
+    this.editEventId,
     this.hasExistingEvent = false,
     this.previousEventName,
     this.previousParticipants,
@@ -37,8 +37,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final List<TextEditingController> _judgeControllers = [];
   final List<FocusNode> _judgeFocusNodes = [];
   final List<int> _judgeWeights = [];
+  final List<String?> _judgeIds = [];
   final List<TextEditingController> _participantControllers = [];
   final List<FocusNode> _participantFocusNodes = [];
+  final List<String?> _participantIds = [];
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _judgeControllers.add(TextEditingController(text: judge.name));
         _judgeFocusNodes.add(FocusNode());
         _judgeWeights.add(judge.weight);
+        _judgeIds.add(judge.id.isEmpty ? null : judge.id);
       }
     } else {
       // Start with 5 empty judge slots
@@ -65,24 +68,24 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _judgeControllers.add(TextEditingController());
         _judgeFocusNodes.add(FocusNode());
         _judgeWeights.add(5);
+        _judgeIds.add(null);
       }
     }
 
-    // Initialize participants
+    // Initialize participants (router handles shuffle vs. ordered)
     if (widget.previousParticipants != null &&
         widget.previousParticipants!.isNotEmpty) {
-      // Randomize previous participants
-      final shuffled = List<String>.from(widget.previousParticipants!)
-        ..shuffle(Random());
-      for (final name in shuffled) {
-        _participantControllers.add(TextEditingController(text: name));
+      for (final p in widget.previousParticipants!) {
+        _participantControllers.add(TextEditingController(text: p.name));
         _participantFocusNodes.add(FocusNode());
+        _participantIds.add(p.id.isEmpty ? null : p.id);
       }
     } else {
       // Start with 10 empty participant slots
       for (int i = 0; i < 10; i++) {
         _participantControllers.add(TextEditingController());
         _participantFocusNodes.add(FocusNode());
+        _participantIds.add(null);
       }
     }
   }
@@ -111,6 +114,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       _judgeControllers.add(TextEditingController());
       _judgeFocusNodes.add(FocusNode());
       _judgeWeights.add(5);
+      _judgeIds.add(null);
     });
   }
 
@@ -122,6 +126,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _judgeFocusNodes[index].dispose();
         _judgeFocusNodes.removeAt(index);
         _judgeWeights.removeAt(index);
+        _judgeIds.removeAt(index);
       });
     }
   }
@@ -130,6 +135,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() {
       _participantControllers.add(TextEditingController());
       _participantFocusNodes.add(FocusNode());
+      _participantIds.add(null);
     });
   }
 
@@ -140,6 +146,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _participantControllers.removeAt(index);
         _participantFocusNodes[index].dispose();
         _participantFocusNodes.removeAt(index);
+        _participantIds.removeAt(index);
       });
     }
   }
@@ -184,18 +191,22 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final judges = [
       for (int i = 0; i < _judgeControllers.length; i++)
         JudgeModel(
+          id: _judgeIds[i] ?? '',
           name: _judgeControllers[i].text.trim(),
           weight: _judgeWeights[i],
         ),
     ];
-    final participantNames = _participantControllers
-        .map((c) => c.text.trim())
-        .toList();
 
-    if (widget.hasExistingEvent) {
-      _confirmCreateEvent(judges, participantNames);
+    if (widget.editEventId != null) {
+      _submitUpdate(judges);
     } else {
-      _submitEvent(judges, participantNames);
+      final participantNames =
+          _participantControllers.map((c) => c.text.trim()).toList();
+      if (widget.hasExistingEvent) {
+        _confirmCreateEvent(judges, participantNames);
+      } else {
+        _submitCreate(judges, participantNames);
+      }
     }
   }
 
@@ -221,7 +232,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-                    _submitEvent(judges, participantNames);
+                    _submitCreate(judges, participantNames);
                   },
                   child: const Text('Continue'),
                 ),
@@ -233,13 +244,33 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
-  void _submitEvent(List<JudgeModel> judges, List<String> participantNames) {
+  void _submitCreate(List<JudgeModel> judges, List<String> participantNames) {
     context.read<AdminBloc>().add(
           CreateEvent(
             name: _eventNameController.text.trim(),
             participantNames: participantNames,
             audienceBallotCount: int.parse(_audienceCountController.text),
             judges: judges,
+          ),
+        );
+  }
+
+  void _submitUpdate(List<JudgeModel> judges) {
+    final participants = [
+      for (int i = 0; i < _participantControllers.length; i++)
+        ParticipantModel(
+          id: _participantIds[i] ?? '',
+          name: _participantControllers[i].text.trim(),
+          order: i + 1,
+        ),
+    ];
+    context.read<AdminBloc>().add(
+          UpdateEvent(
+            eventId: widget.editEventId!,
+            name: _eventNameController.text.trim(),
+            participants: participants,
+            judges: judges,
+            audienceBallotCount: int.parse(_audienceCountController.text),
           ),
         );
   }
@@ -328,6 +359,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               newIndex > oldIndex ? newIndex - 1 : newIndex;
           final controller = _participantControllers.removeAt(oldIndex);
           _participantControllers.insert(adjustedIndex, controller);
+          final focusNode = _participantFocusNodes.removeAt(oldIndex);
+          _participantFocusNodes.insert(adjustedIndex, focusNode);
+          final id = _participantIds.removeAt(oldIndex);
+          _participantIds.insert(adjustedIndex, id);
         });
       },
       itemBuilder: (context, index) => _buildParticipantRow(context, index),
@@ -405,20 +440,23 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           onPressed: () => context.go(AppRoutes.admin),
         ),
         titleSpacing: 0,
-        title: const Text('Create Event'),
+        title: Text(widget.editEventId != null ? 'Edit Event' : 'Create Event'),
       ),
       body: BlocListener<AdminBloc, AdminState>(
         listenWhen: (previous, current) {
-          // Navigate when event creation completes
-          final wasCreating =
-              previous is AdminLoaded && previous.isCreatingEvent;
-          final nowLoaded = current is AdminLoaded &&
-              !current.isCreatingEvent &&
-              current.currentEvent != null;
-          return wasCreating && nowLoaded;
+          if (previous is! AdminLoaded || current is! AdminLoaded) return false;
+          final doneCreating =
+              previous.isCreatingEvent && !current.isCreatingEvent;
+          final doneUpdating =
+              previous.isUpdatingEvent && !current.isUpdatingEvent;
+          return (doneCreating || doneUpdating) && current.currentEvent != null;
         },
         listener: (context, state) {
-          context.go(AppRoutes.adminBallots);
+          if (widget.editEventId != null) {
+            context.go(AppRoutes.admin);
+          } else {
+            context.go(AppRoutes.adminBallots);
+          }
         },
         child: Form(
           key: _formKey,
@@ -503,8 +541,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               const SizedBox(height: 32),
               BlocBuilder<AdminBloc, AdminState>(
                 builder: (context, state) {
-                  final isLoading =
-                      state is AdminLoaded && state.isCreatingEvent;
+                  final isLoading = state is AdminLoaded &&
+                      (state.isCreatingEvent || state.isUpdatingEvent);
                   return ElevatedButton(
                     onPressed: isLoading ? null : _createEvent,
                     child: isLoading
@@ -513,7 +551,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Create Event & Generate Ballots'),
+                        : Text(widget.editEventId != null
+                            ? 'Update Event'
+                            : 'Create Event & Generate Ballots'),
                   );
                 },
               ),

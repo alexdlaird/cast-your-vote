@@ -80,6 +80,25 @@ class UpdateParticipantDonation extends AdminEvent {
   List<Object?> get props => [participantId, hasDonation];
 }
 
+class UpdateEvent extends AdminEvent {
+  final String eventId;
+  final String name;
+  final List<ParticipantModel> participants;
+  final List<JudgeModel> judges;
+  final int audienceBallotCount;
+
+  const UpdateEvent({
+    required this.eventId,
+    required this.name,
+    required this.participants,
+    required this.judges,
+    required this.audienceBallotCount,
+  });
+
+  @override
+  List<Object?> get props => [eventId, name, participants, judges, audienceBallotCount];
+}
+
 class UpdateParticipantDropout extends AdminEvent {
   final String participantId;
   final bool droppedOut;
@@ -143,12 +162,14 @@ class AdminLoaded extends AdminState {
   final EventModel? currentEvent;
   final List<BallotModel> ballots;
   final bool isCreatingEvent;
+  final bool isUpdatingEvent;
   final ClosingProgress closingProgress;
 
   const AdminLoaded({
     this.currentEvent,
     this.ballots = const [],
     this.isCreatingEvent = false,
+    this.isUpdatingEvent = false,
     this.closingProgress = ClosingProgress.none,
   });
 
@@ -184,12 +205,13 @@ class AdminLoaded extends AdminState {
 
   @override
   List<Object?> get props =>
-      [currentEvent, ballots, isCreatingEvent, closingProgress];
+      [currentEvent, ballots, isCreatingEvent, isUpdatingEvent, closingProgress];
 
   AdminLoaded copyWith({
     EventModel? currentEvent,
     List<BallotModel>? ballots,
     bool? isCreatingEvent,
+    bool? isUpdatingEvent,
     ClosingProgress? closingProgress,
     bool clearEvent = false,
   }) {
@@ -197,6 +219,7 @@ class AdminLoaded extends AdminState {
       currentEvent: clearEvent ? null : (currentEvent ?? this.currentEvent),
       ballots: ballots ?? this.ballots,
       isCreatingEvent: isCreatingEvent ?? this.isCreatingEvent,
+      isUpdatingEvent: isUpdatingEvent ?? this.isUpdatingEvent,
       closingProgress: closingProgress ?? this.closingProgress,
     );
   }
@@ -233,6 +256,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     on<_BallotsUpdated>(_onBallotsUpdated);
     on<_StreamError>(_onStreamError);
     on<CreateEvent>(_onCreateEvent);
+    on<UpdateEvent>(_onUpdateEvent);
     on<CloseVoting>(_onCloseVoting);
     on<RefetchResults>(_onRefetchResults);
     on<UpdateDonationWinner>(_onUpdateDonationWinner);
@@ -327,12 +351,16 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         );
       }).toList();
 
+      final judgesWithIds = event.judges.asMap().entries.map((entry) {
+        return entry.value.copyWith(id: 'j${entry.key + 1}');
+      }).toList();
+
       final newEvent = await _eventRepository.createEvent(
         EventModel(
           id: '',
           name: event.name,
           participants: participants,
-          judges: event.judges,
+          judges: judgesWithIds,
           status: EventStatus.open,
           createdAt: DateTime.now(),
         ),
@@ -341,13 +369,128 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       final ballots = await _ballotRepository.createBallotsAndReturn(
         eventId: newEvent.id,
         audienceCount: event.audienceBallotCount,
-        judges: event.judges,
+        judges: judgesWithIds,
       );
 
       // Emit AdminLoaded directly - streams will update with any changes
       emit(AdminLoaded(currentEvent: newEvent, ballots: ballots));
     } catch (e, stackTrace) {
       _log.severe('Failed to create event', e, stackTrace);
+      emit(AdminError(e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateEvent(
+    UpdateEvent event,
+    Emitter<AdminState> emit,
+  ) async {
+    var currentState = state;
+    if (currentState is! AdminLoaded || currentState.currentEvent == null) return;
+
+    final existingEvent = currentState.currentEvent!;
+    emit(currentState.copyWith(isUpdatingEvent: true));
+
+    try {
+      // Assign IDs to new participants (empty id = new), preserving existing IDs.
+      final existingParticipants = existingEvent.participants;
+      final usedPIds = existingParticipants.map((p) => p.id).toSet();
+      int nextPNum = existingParticipants.length + 1;
+      String _nextParticipantId() {
+        while (usedPIds.contains('p$nextPNum')) nextPNum++;
+        final id = 'p${nextPNum++}';
+        usedPIds.add(id);
+        return id;
+      }
+
+      final updatedParticipants = event.participants.asMap().entries.map((entry) {
+        final i = entry.key;
+        final p = entry.value;
+        final id = p.id.isEmpty ? _nextParticipantId() : p.id;
+        final existing = existingParticipants.firstWhereOrNull((ep) => ep.id == id);
+        return ParticipantModel(
+          id: id,
+          name: p.name,
+          order: i + 1,
+          hasDonation: existing?.hasDonation ?? false,
+          droppedOut: existing?.droppedOut ?? false,
+        );
+      }).toList();
+
+      // Assign IDs to new judges (empty id = new), preserving existing IDs.
+      final usedJIds = existingEvent.judges.map((j) => j.id).toSet();
+      int nextJNum = existingEvent.judges.length + 1;
+      String _nextJudgeId() {
+        while (usedJIds.contains('j$nextJNum')) nextJNum++;
+        final id = 'j${nextJNum++}';
+        usedJIds.add(id);
+        return id;
+      }
+
+      final updatedJudges = event.judges.map((j) {
+        return j.id.isEmpty ? j.copyWith(id: _nextJudgeId()) : j;
+      }).toList();
+
+      // Persist updated event document.
+      final updatedEvent = existingEvent.copyWith(
+        name: event.name,
+        participants: updatedParticipants,
+        judges: updatedJudges,
+      );
+      await _eventRepository.updateEvent(updatedEvent);
+
+      // Add audience ballots if count increased (cannot remove existing).
+      final existingAudienceCount = currentState.audienceBallotCount;
+      if (event.audienceBallotCount > existingAudienceCount) {
+        await _ballotRepository.createBallotsAndReturn(
+          eventId: existingEvent.id,
+          audienceCount: event.audienceBallotCount - existingAudienceCount,
+          judges: [],
+        );
+      }
+
+      // Sync judge ballots by judgeId.
+      final existingJudgeBallots =
+          currentState.ballots.where((b) => b.isJudge).toList();
+
+      for (final judge in updatedJudges) {
+        final existing = existingJudgeBallots
+            .firstWhereOrNull((b) => b.judgeId == judge.id);
+        if (existing != null) {
+          if (existing.judgeName != judge.name ||
+              existing.judgeWeight != judge.weight) {
+            await _ballotRepository.updateBallot(
+              existing.copyWith(judgeName: judge.name, judgeWeight: judge.weight),
+            );
+          }
+        } else {
+          await _ballotRepository.createBallotsAndReturn(
+            eventId: existingEvent.id,
+            audienceCount: 0,
+            judges: [judge],
+          );
+        }
+      }
+
+      // Delete unsubmitted ballots for removed judges.
+      final updatedJudgeIds = updatedJudges.map((j) => j.id).toSet();
+      for (final ballot in existingJudgeBallots) {
+        if (ballot.judgeId != null &&
+            !updatedJudgeIds.contains(ballot.judgeId) &&
+            !ballot.submitted) {
+          await _ballotRepository.deleteBallot(ballot.code);
+        }
+      }
+
+      currentState = state as AdminLoaded;
+      emit(currentState.copyWith(
+        currentEvent: updatedEvent,
+        isUpdatingEvent: false,
+      ));
+    } catch (e, stackTrace) {
+      _log.severe('Failed to update event', e, stackTrace);
+      if (state is AdminLoaded) {
+        emit((state as AdminLoaded).copyWith(isUpdatingEvent: false));
+      }
       emit(AdminError(e.toString()));
     }
   }

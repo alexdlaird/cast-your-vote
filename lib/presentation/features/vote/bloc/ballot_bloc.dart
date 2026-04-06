@@ -97,11 +97,14 @@ class BallotLoaded extends BallotState {
     this.isAdvancingRound = false,
   });
 
-  RoundModel get currentRound => event.rounds[ballot.currentRoundIndex];
+  RoundModel? get currentRound => event.rounds.isNotEmpty
+      ? event.rounds[ballot.currentRoundIndex.clamp(0, event.rounds.length - 1)]
+      : null;
 
   int get totalRounds => event.rounds.length;
 
   bool get isOnLastRound =>
+      event.rounds.isEmpty ||
       ballot.currentRoundIndex == event.rounds.length - 1;
 
   @override

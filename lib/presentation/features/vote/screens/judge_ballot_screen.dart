@@ -232,7 +232,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   Widget _buildBallotView(BuildContext context, BallotLoaded state) {
     final participants = List<ParticipantModel>.from(state.event.participants)
       ..sort((a, b) => a.order.compareTo(b.order));
-    final round = state.currentRound;
+    final round = state.currentRound!;
     final votes = state.ballot.judgeVotesForRound(round.id);
     final canSubmit = _canSubmit(votes, participants.length);
     final isLastParticipant = _currentParticipantIndex == participants.length - 1;
@@ -660,7 +660,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     final state = context.read<BallotBloc>().state;
     if (state is! BallotLoaded) return;
     context.read<BallotBloc>().add(UpdateJudgeVote(
-          roundId: state.currentRound.id,
+          roundId: state.currentRound!.id,
           participantId: participantId,
           vote: vote,
         ));

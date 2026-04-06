@@ -57,10 +57,10 @@ class EventModel extends Equatable {
       votingResults: votingResultsJson != null
           ? VotingResults.fromJson(votingResultsJson)
           : null,
-      rounds: (json['rounds'] as List<dynamic>?)
-              ?.map((r) => RoundModel.fromJson(r as Map<String, dynamic>))
-              .toList() ??
-          const <RoundModel>[],
+      rounds: [
+        for (final r in (json['rounds'] as List<dynamic>?) ?? [])
+          RoundModel.fromJson(r as Map<String, dynamic>),
+      ],
     );
   }
 

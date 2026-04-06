@@ -41,7 +41,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   String? _lastRoundId;
 
   void _initFromState(BallotLoaded state) {
-    final roundId = state.currentRound.id;
+    final roundId = state.currentRound!.id;
     final active = state.event.participants.where((p) => !p.droppedOut).toList()
       ..sort((a, b) => a.order.compareTo(b.order));
 
@@ -90,7 +90,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     final bloc = context.read<BallotBloc>();
     final state = bloc.state;
     if (state is! BallotLoaded) return;
-    final roundId = state.currentRound.id;
+    final roundId = state.currentRound!.id;
 
     for (final p in _unranked) {
       bloc.add(UpdateAudienceVote(
@@ -166,7 +166,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
         if (state is BallotError) {
           SnackBarHelper.show(context, state.message, type: SnackType.error);
         } else if (state is BallotLoaded) {
-          final roundId = state.currentRound.id;
+          final roundId = state.currentRound!.id;
           if (!_initialized || _lastRoundId != roundId) {
             _initFromState(state);
           }
@@ -256,7 +256,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
       ],
       body: Column(
         children: [
-          if (isMultiRound)
+          if (isMultiRound && round != null)
             _buildRoundIndicator(context, state, round),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -573,7 +573,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     if (!state.event.isMultiRound && state.event.rounds.isEmpty) return null;
     if (state.event.rounds.isEmpty) return null;
     final round = state.currentRound;
-    return round.entryForParticipant(participant.id)?.title;
+    return round?.entryForParticipant(participant.id)?.title;
   }
 
   Widget _buildCard(

@@ -246,7 +246,8 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     final round = state.currentRound;
 
     return AppScaffold(
-      title: 'Ballot for "${state.event.name}"',
+      title: 'Ballot',
+      eventName: state.event.name,
       actions: [
         if (_ranked.isNotEmpty)
           TextButton(

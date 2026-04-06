@@ -1,12 +1,12 @@
 // Copyright (c) 2024 Cast Your Vote. MIT License.
 
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cast_your_vote/config/app_routes.dart';
-import 'package:cast_your_vote/data/models/models.dart';
-import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
-import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 
 class RoundsScreen extends StatefulWidget {
   const RoundsScreen({super.key});
@@ -15,9 +15,9 @@ class RoundsScreen extends StatefulWidget {
   State<RoundsScreen> createState() => _RoundsScreenState();
 }
 
-
 class _RoundsScreenState extends State<RoundsScreen> {
   late List<ParticipantModel> _participants;
+
   // _roundEntries[roundIndex][participantIndex] = TextEditingController
   late List<List<TextEditingController>> _roundEntries;
   int _roundCount = 1;
@@ -30,8 +30,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
 
   void _initRounds() {
     final adminState = context.read<AdminBloc>().state;
-    final event =
-        adminState is AdminLoaded ? adminState.currentEvent : null;
+    final event = adminState is AdminLoaded ? adminState.currentEvent : null;
 
     _participants = List<ParticipantModel>.from(event?.participants ?? [])
       ..sort((a, b) => a.order.compareTo(b.order));
@@ -104,89 +103,100 @@ class _RoundsScreenState extends State<RoundsScreen> {
     if (adminState is! AdminLoaded || adminState.currentEvent == null) return;
     final event = adminState.currentEvent!;
 
-    context.read<AdminBloc>().add(UpdateEvent(
-          eventId: event.id,
-          name: event.name,
-          participants: event.participants,
-          judges: event.judges,
-          rounds: _buildRounds(),
-          audienceBallotCount: adminState.audienceBallotCount,
-        ));
+    context.read<AdminBloc>().add(
+      UpdateEvent(
+        eventId: event.id,
+        name: event.name,
+        participants: event.participants,
+        judges: event.judges,
+        rounds: _buildRounds(),
+        audienceBallotCount: adminState.audienceBallotCount,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(
-            '${AppRoutes.adminCreateEvent}?edit=true',
+    final adminState = context.watch<AdminBloc>().state;
+    final eventName = adminState is AdminLoaded
+        ? adminState.currentEvent?.name
+        : null;
+    return Title(
+      color: Theme.of(context).primaryColor,
+      title: eventName != null ? 'Edit Rounds | $eventName' : 'Edit Rounds',
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () =>
+                context.go('${AppRoutes.adminCreateEvent}?edit=true'),
           ),
+          titleSpacing: 0,
+          title: const Text('Edit Rounds'),
         ),
-        titleSpacing: 0,
-        title: const Text('Edit Rounds'),
-      ),
-      body: BlocListener<AdminBloc, AdminState>(
-        listenWhen: (previous, current) {
-          if (previous is! AdminLoaded || current is! AdminLoaded) return false;
-          return previous.isUpdatingEvent &&
-              !current.isUpdatingEvent &&
-              current.currentEvent != null;
-        },
-        listener: (context, state) {
-          context.go(AppRoutes.adminBallots);
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            for (var ri = 0; ri < _roundCount; ri++) ...[
-              _buildRoundSection(context, ri),
-              const SizedBox(height: 24),
-            ],
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _addRound,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Round'),
-                  ),
-                ),
-                if (_roundCount > 1) ...[
-                  const SizedBox(width: 12),
+        body: BlocListener<AdminBloc, AdminState>(
+          listenWhen: (previous, current) {
+            if (previous is! AdminLoaded || current is! AdminLoaded) {
+              return false;
+            }
+            return previous.isUpdatingEvent &&
+                !current.isUpdatingEvent &&
+                current.currentEvent != null;
+          },
+          listener: (context, state) {
+            context.go(AppRoutes.adminBallots);
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              for (var ri = 0; ri < _roundCount; ri++) ...[
+                _buildRoundSection(context, ri),
+                const SizedBox(height: 24),
+              ],
+              Row(
+                children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _removeLastRound,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: context.colorScheme.error,
-                        side: BorderSide(color: context.colorScheme.error),
-                      ),
-                      icon: const Icon(Icons.remove, size: 18),
-                      label: const Text('Last Round'),
+                      onPressed: _addRound,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Round'),
                     ),
                   ),
+                  if (_roundCount > 1) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _removeLastRound,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: context.colorScheme.error,
+                          side: BorderSide(color: context.colorScheme.error),
+                        ),
+                        icon: const Icon(Icons.remove, size: 18),
+                        label: const Text('Last Round'),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
-            const SizedBox(height: 32),
-            BlocBuilder<AdminBloc, AdminState>(
-              builder: (context, state) {
-                final isLoading =
-                    state is AdminLoaded && state.isUpdatingEvent;
-                return ElevatedButton(
-                  onPressed: isLoading ? null : _submit,
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save Changes'),
-                );
-              },
-            ),
-          ],
+              ),
+              const SizedBox(height: 32),
+              BlocBuilder<AdminBloc, AdminState>(
+                builder: (context, state) {
+                  final isLoading =
+                      state is AdminLoaded && state.isUpdatingEvent;
+                  return ElevatedButton(
+                    onPressed: isLoading ? null : _submit,
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save Changes'),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -196,10 +206,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Round ${roundIndex + 1}',
-          style: context.textTheme.titleMedium,
-        ),
+        Text('Round ${roundIndex + 1}', style: context.textTheme.titleMedium),
         const SizedBox(height: 8),
         for (var pi = 0; pi < _participants.length; pi++)
           Padding(

@@ -82,6 +82,7 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
           );
         }
 
+        final eventName = state.currentEvent!.name;
         final ballots = state.ballots;
 
         final audienceBallots = ballots.where((b) => b.isAudience).toList()
@@ -89,7 +90,10 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
         final judgeBallots = ballots.where((b) => b.isJudge).toList()
           ..sort((a, b) => a.code.compareTo(b.code));
 
-        return DefaultTabController(
+        return Title(
+          color: Theme.of(context).primaryColor,
+          title: 'Ballot Codes | $eventName',
+          child: DefaultTabController(
           length: 2,
           child: Scaffold(
             appBar: AppBar(
@@ -133,7 +137,7 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }

@@ -246,29 +246,33 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
     void dispatch() {
       if (widget.editEventId != null) {
-        context.read<AdminBloc>().add(UpdateEvent(
-              eventId: widget.editEventId!,
-              name: _eventNameController.text.trim(),
-              participants: participants,
-              judges: judges,
-              rounds: widget.previousRounds,
-              audienceBallotCount: int.parse(_audienceCountController.text),
-              logoBytes: _logoBytes,
-              logoMimeType: _logoMimeType,
-              logoFileName: _logoFileName,
-            ));
+        context.read<AdminBloc>().add(
+          UpdateEvent(
+            eventId: widget.editEventId!,
+            name: _eventNameController.text.trim(),
+            participants: participants,
+            judges: judges,
+            rounds: widget.previousRounds,
+            audienceBallotCount: int.parse(_audienceCountController.text),
+            logoBytes: _logoBytes,
+            logoMimeType: _logoMimeType,
+            logoFileName: _logoFileName,
+          ),
+        );
       } else {
-        context.read<AdminBloc>().add(CreateEvent(
-              name: _eventNameController.text.trim(),
-              participantNames: participants.map((p) => p.name).toList(),
-              audienceBallotCount: int.parse(_audienceCountController.text),
-              judges: judges,
-              rounds: const [],
-              previousLogoUrl: widget.previousLogoUrl,
-              logoBytes: _logoBytes,
-              logoMimeType: _logoMimeType,
-              logoFileName: _logoFileName,
-            ));
+        context.read<AdminBloc>().add(
+          CreateEvent(
+            name: _eventNameController.text.trim(),
+            participantNames: participants.map((p) => p.name).toList(),
+            audienceBallotCount: int.parse(_audienceCountController.text),
+            judges: judges,
+            rounds: const [],
+            previousLogoUrl: widget.previousLogoUrl,
+            logoBytes: _logoBytes,
+            logoMimeType: _logoMimeType,
+            logoFileName: _logoFileName,
+          ),
+        );
       }
     }
 
@@ -478,142 +482,156 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         context.go(AppRoutes.adminRounds);
       },
       builder: (context, state) {
-        final isBusy = state is AdminLoaded &&
+        final isBusy =
+            state is AdminLoaded &&
             (state.isCreatingEvent || state.isUpdatingEvent);
-        return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: null,
-              onPressed: () => context.go(AppRoutes.admin),
+        final pageLabel = widget.editEventId != null
+            ? 'Edit Event'
+            : 'Create Event';
+        final eventName =
+            widget.previousEventName ??
+            (state is AdminLoaded ? state.currentEvent?.name : null);
+        return Title(
+          color: Theme.of(context).primaryColor,
+          title: eventName != null ? '$pageLabel | $eventName' : pageLabel,
+          child: Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: null,
+                onPressed: () => context.go(AppRoutes.admin),
+              ),
+              titleSpacing: 0,
+              title: Text(
+                widget.editEventId != null ? 'Edit Event' : 'Create Event',
+              ),
             ),
-            titleSpacing: 0,
-            title:
-                Text(widget.editEventId != null ? 'Edit Event' : 'Create Event'),
-          ),
-          body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _eventNameController,
+            body: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _eventNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Event Name',
+                            hintText: "Come Out Singin'",
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Required';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: _pickLogo,
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 56),
+                        ),
+                        icon: Icon(
+                          _logoBytes != null || widget.previousLogoUrl != null
+                              ? Icons.image
+                              : Icons.upload,
+                          size: 18,
+                        ),
+                        label: Text(
+                          _logoBytes != null
+                              ? _logoFileName ?? 'Logo selected'
+                              : widget.previousLogoUrl != null
+                              ? _filenameFromUrl(widget.previousLogoUrl!) ??
+                                    'Logo selected'
+                              : 'Upload Logo',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: _audienceCountController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
-                      labelText: 'Event Name',
-                      hintText: "Come Out Singin'",
+                      labelText: 'Audience Ballots',
+                      hintText: '100',
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Required';
                       }
+                      if (int.tryParse(value) == null) {
+                        return 'Invalid number';
+                      }
                       return null;
                     },
+                    onFieldSubmitted: (_) {
+                      if (_judgeFocusNodes.isNotEmpty) {
+                        _judgeFocusNodes.first.requestFocus();
+                      }
+                    },
                   ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: _pickLogo,
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 56),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Judges', style: context.textTheme.titleMedium),
+                      IconButton(
+                        onPressed: _addJudgeField,
+                        icon: const Icon(Icons.add_circle),
+                        color: context.colorScheme.primary,
+                        tooltip: 'Add judge',
+                        focusNode: FocusNode(skipTraversal: true),
+                      ),
+                    ],
                   ),
-                  icon: Icon(
-                    _logoBytes != null || widget.previousLogoUrl != null
-                        ? Icons.image
-                        : Icons.upload,
-                    size: 18,
+                  const SizedBox(height: 8),
+                  _buildJudgesList(),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Performers (in order of performance)',
+                        style: context.textTheme.titleMedium,
+                      ),
+                      IconButton(
+                        onPressed: _addParticipantField,
+                        icon: const Icon(Icons.add_circle),
+                        color: context.colorScheme.primary,
+                        tooltip: 'Add performer',
+                        focusNode: FocusNode(skipTraversal: true),
+                      ),
+                    ],
                   ),
-                  label: Text(
-                    _logoBytes != null
-                        ? _logoFileName ?? 'Logo selected'
-                        : widget.previousLogoUrl != null
-                        ? _filenameFromUrl(widget.previousLogoUrl!) ??
-                              'Logo selected'
-                        : 'Upload Logo',
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 8),
+                  _buildParticipantsList(),
+                  const SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: isBusy ? null : _goToRounds,
+                    child: isBusy
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            widget.editEventId != null
+                                ? 'Update & Continue'
+                                : 'Create & Continue',
+                          ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _audienceCountController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Audience Ballots',
-                hintText: '100',
+                ],
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Required';
-                }
-                if (int.tryParse(value) == null) {
-                  return 'Invalid number';
-                }
-                return null;
-              },
-              onFieldSubmitted: (_) {
-                if (_judgeFocusNodes.isNotEmpty) {
-                  _judgeFocusNodes.first.requestFocus();
-                }
-              },
             ),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Judges', style: context.textTheme.titleMedium),
-                IconButton(
-                  onPressed: _addJudgeField,
-                  icon: const Icon(Icons.add_circle),
-                  color: context.colorScheme.primary,
-                  tooltip: 'Add judge',
-                  focusNode: FocusNode(skipTraversal: true),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _buildJudgesList(),
-            const SizedBox(height: 32),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Performers (in order of performance)',
-                  style: context.textTheme.titleMedium,
-                ),
-                IconButton(
-                  onPressed: _addParticipantField,
-                  icon: const Icon(Icons.add_circle),
-                  color: context.colorScheme.primary,
-                  tooltip: 'Add performer',
-                  focusNode: FocusNode(skipTraversal: true),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _buildParticipantsList(),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: isBusy ? null : _goToRounds,
-              child: isBusy
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(widget.editEventId != null
-                      ? 'Update & Continue'
-                      : 'Create & Continue'),
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
       },
     );
   }

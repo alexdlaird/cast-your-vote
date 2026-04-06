@@ -240,7 +240,8 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     final isMultiRound = state.event.isMultiRound;
 
     return AppScaffold(
-      title: 'Judge Ballot for "${state.event.name}"',
+      title: 'Judge Ballot',
+      eventName: state.event.name,
       actions: [
         if (isMultiRound)
           Container(

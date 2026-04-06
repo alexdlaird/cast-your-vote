@@ -86,7 +86,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Title(
+      color: Theme.of(context).primaryColor,
+      title: 'Admin Login | Cast Your Vote!',
+      child: Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -135,6 +138,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

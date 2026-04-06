@@ -6,29 +6,29 @@ enum BallotType { audience, judge }
 class JudgeVote extends Equatable {
   final int singing;
   final int performance;
-  final int audienceParticipation;
+  final int songFit;
   final String singingComments;
   final String performanceComments;
-  final String audienceParticipationComments;
+  final String songFitComments;
 
   const JudgeVote({
     required this.singing,
     required this.performance,
-    required this.audienceParticipation,
+    required this.songFit,
     this.singingComments = '',
     this.performanceComments = '',
-    this.audienceParticipationComments = '',
+    this.songFitComments = '',
   });
 
   factory JudgeVote.fromJson(Map<String, dynamic> json) {
     return JudgeVote(
       singing: json['singing'] as int,
       performance: json['performance'] as int,
-      audienceParticipation: json['audienceParticipation'] as int,
+      songFit: json['songFit'] as int,
       singingComments: json['singingComments'] as String? ?? '',
       performanceComments: json['performanceComments'] as String? ?? '',
-      audienceParticipationComments:
-          json['audienceParticipationComments'] as String? ?? '',
+      songFitComments:
+          json['songFitComments'] as String? ?? '',
     );
   }
 
@@ -36,30 +36,30 @@ class JudgeVote extends Equatable {
     return {
       'singing': singing,
       'performance': performance,
-      'audienceParticipation': audienceParticipation,
+      'songFit': songFit,
       'singingComments': singingComments,
       'performanceComments': performanceComments,
-      'audienceParticipationComments': audienceParticipationComments,
+      'songFitComments': songFitComments,
     };
   }
 
   JudgeVote copyWith({
     int? singing,
     int? performance,
-    int? audienceParticipation,
+    int? songFit,
     String? singingComments,
     String? performanceComments,
-    String? audienceParticipationComments,
+    String? songFitComments,
   }) {
     return JudgeVote(
       singing: singing ?? this.singing,
       performance: performance ?? this.performance,
-      audienceParticipation:
-          audienceParticipation ?? this.audienceParticipation,
+      songFit:
+          songFit ?? this.songFit,
       singingComments: singingComments ?? this.singingComments,
       performanceComments: performanceComments ?? this.performanceComments,
-      audienceParticipationComments:
-          audienceParticipationComments ?? this.audienceParticipationComments,
+      songFitComments:
+          songFitComments ?? this.songFitComments,
     );
   }
 
@@ -67,10 +67,10 @@ class JudgeVote extends Equatable {
   List<Object?> get props => [
         singing,
         performance,
-        audienceParticipation,
+        songFit,
         singingComments,
         performanceComments,
-        audienceParticipationComments,
+        songFitComments,
       ];
 }
 

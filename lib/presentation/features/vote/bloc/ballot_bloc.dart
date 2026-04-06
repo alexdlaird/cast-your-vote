@@ -368,7 +368,7 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
         judgeVotes[p.id] = const JudgeVote(
           singing: 1,
           performance: 1,
-          audienceParticipation: 1,
+          songFit: 1,
         );
       }
       return ballot.copyWith(judgeVotes: judgeVotes);

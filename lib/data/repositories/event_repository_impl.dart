@@ -43,10 +43,10 @@ class EventRepositoryImpl implements EventRepository {
   }) async {
     final updates = <String, dynamic>{};
     if (largestDonationWinnerId != null) {
-      updates['largestDonationWinnerId'] = largestDonationWinnerId.isEmpty ? null : largestDonationWinnerId;
+      updates['largestDonationWinnerId'] = largestDonationWinnerId;
     }
     if (mostDonationsWinnerId != null) {
-      updates['mostDonationsWinnerId'] = mostDonationsWinnerId.isEmpty ? null : mostDonationsWinnerId;
+      updates['mostDonationsWinnerId'] = mostDonationsWinnerId;
     }
     if (updates.isNotEmpty) {
       await _eventsCollection.doc(eventId).update(updates);

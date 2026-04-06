@@ -81,21 +81,21 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
           // Invert scores: (6 - score) * 3 so that 5 (best) → 3, 1 (worst) → 15
           final singing = (6 - vote.singing) * 3;
           final performance = (6 - vote.performance) * 3;
-          final audienceParticipation = (6 - vote.audienceParticipation) * 3;
+          final songFit = (6 - vote.songFit) * 3;
           final weightRatio = ballot.judgeWeight / 5.0;
-          final total = (singing + performance + audienceParticipation) * weightRatio;
+          final total = (singing + performance + songFit) * weightRatio;
           judgeRows.add([
             ballot.judgeName ?? ballot.code,
             ballot.code,
             participant.displayName,
             singing,
             performance,
-            audienceParticipation,
+            songFit,
             weightRatio,
             total,
             vote.singingComments,
             vote.performanceComments,
-            vote.audienceParticipationComments,
+            vote.songFitComments,
           ]);
         }
       }

@@ -82,13 +82,13 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   bool _isVoteComplete(JudgeVote vote) {
     return vote.singing != 0 &&
         vote.performance != 0 &&
-        vote.audienceParticipation != 0;
+        vote.songFit != 0;
   }
 
   bool _isVotePartial(JudgeVote vote) {
     final filledCount = (vote.singing != 0 ? 1 : 0) +
         (vote.performance != 0 ? 1 : 0) +
-        (vote.audienceParticipation != 0 ? 1 : 0);
+        (vote.songFit != 0 ? 1 : 0);
     return filledCount > 0 && filledCount < 3;
   }
 
@@ -279,7 +279,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
               const JudgeVote(
                 singing: 0,
                 performance: 0,
-                audienceParticipation: 0,
+                songFit: 0,
               );
           return _buildParticipantPage(
             context,
@@ -481,17 +481,17 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
                   context,
                   label: 'Song Fit',
                   icon: Icons.people,
-                  value: vote.audienceParticipation,
-                  comment: vote.audienceParticipationComments,
-                  isCommentOpen: _openCommentCategory == 'audienceParticipation',
+                  value: vote.songFit,
+                  comment: vote.songFitComments,
+                  isCommentOpen: _openCommentCategory == 'songFit',
                   onCommentToggle: () => setState(() => _openCommentCategory =
-                      _openCommentCategory == 'audienceParticipation'
+                      _openCommentCategory == 'songFit'
                           ? null
-                          : 'audienceParticipation'),
+                          : 'songFit'),
                   onScoreChanged: (v) => _updateVote(context, participant.id,
-                      vote.copyWith(audienceParticipation: v)),
+                      vote.copyWith(songFit: v)),
                   onCommentSaved: (v) => _updateVote(context, participant.id,
-                      vote.copyWith(audienceParticipationComments: v)),
+                      vote.copyWith(songFitComments: v)),
                 ),
               ],
             ),

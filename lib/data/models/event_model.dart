@@ -34,9 +34,6 @@ class EventModel extends Equatable {
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json, String id) {
-    // Helper to convert empty strings to null
-    String? nullIfEmpty(String? value) => value?.isEmpty == true ? null : value;
-
     final votingResultsJson = json['votingResults'] as Map<String, dynamic>?;
 
     return EventModel(
@@ -46,16 +43,14 @@ class EventModel extends Equatable {
               .map((p) => ParticipantModel.fromJson(p as Map<String, dynamic>))
               .toList(),
       judges: (json['judges'] as List<dynamic>?)
-              ?.map((j) => j is String
-                  ? JudgeModel(name: j)
-                  : JudgeModel.fromJson(j as Map<String, dynamic>))
+              ?.map((j) => JudgeModel.fromJson(j as Map<String, dynamic>))
               .toList() ?? const <JudgeModel>[],
       status: EventStatus.values.byName(json['status'] as String),
       createdAt: (json['createdAt'] as Timestamp).toDate(),
-      largestDonationWinnerId: nullIfEmpty(json['largestDonationWinnerId'] as String?),
-      mostDonationsWinnerId: nullIfEmpty(json['mostDonationsWinnerId'] as String?),
-      spreadsheetUrl: nullIfEmpty(json['spreadsheetUrl'] as String?),
-      logoUrl: nullIfEmpty(json['logoUrl'] as String?),
+      largestDonationWinnerId: json['largestDonationWinnerId'] as String?,
+      mostDonationsWinnerId: json['mostDonationsWinnerId'] as String?,
+      spreadsheetUrl: json['spreadsheetUrl'] as String?,
+      logoUrl: json['logoUrl'] as String?,
       votingResults: votingResultsJson != null
           ? VotingResults.fromJson(votingResultsJson)
           : null,

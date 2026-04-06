@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 class AppScaffold extends StatelessWidget {
   final Widget body;
   final String? title;
-  final String? browserTitle;
   final int currentIndex;
   final bool showBottomNav;
   final List<Widget>? actions;
@@ -14,7 +13,6 @@ class AppScaffold extends StatelessWidget {
     super.key,
     required this.body,
     this.title,
-    this.browserTitle,
     this.currentIndex = 0,
     this.showBottomNav = false,
     this.actions,
@@ -23,7 +21,7 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pageTitle = browserTitle ?? title ?? 'Cast Your Vote!';
+    final pageTitle = title ?? 'Cast Your Vote!';
 
     return Title(
       color: Theme.of(context).primaryColor,

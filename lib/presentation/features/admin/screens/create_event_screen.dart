@@ -78,7 +78,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
 
     // Initialize judges
-    if (widget.previousJudges != null && widget.previousJudges!.isNotEmpty) {
+    if (widget.previousJudges != null) {
+      // Editing an existing event — use exactly what's saved (may be empty)
       for (final judge in widget.previousJudges!) {
         _judgeControllers.add(TextEditingController(text: judge.name));
         _judgeFocusNodes.add(FocusNode());
@@ -86,7 +87,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _judgeIds.add(judge.id.isEmpty ? null : judge.id);
       }
     } else {
-      // Start with 5 empty judge slots
+      // New event with no prior data — start with 5 empty judge slots
       for (int i = 0; i < 5; i++) {
         _judgeControllers.add(TextEditingController());
         _judgeFocusNodes.add(FocusNode());
@@ -142,7 +143,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   void _removeJudgeField(int index) {
-    if (_judgeControllers.length > 1) {
+    if (_judgeControllers.isNotEmpty) {
       setState(() {
         _judgeControllers[index].dispose();
         _judgeControllers.removeAt(index);
@@ -255,7 +256,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       showDialog(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('Create New Event?'),
+          title: const Text('New Event?'),
           content: const Text(
             "This will start a new event and generate new ballots. The previous event's data, including ballots, will be archived and no longer active.",
           ),

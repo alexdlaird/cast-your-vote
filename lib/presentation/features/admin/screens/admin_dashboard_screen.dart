@@ -37,12 +37,7 @@ class AdminDashboardView extends StatelessWidget {
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  context.go(AppRoutes.adminLogin);
-                }
-              },
+              onPressed: () => _showLogoutDialog(context),
               tooltip: 'Logout',
             ),
           ],
@@ -210,7 +205,7 @@ class AdminDashboardView extends StatelessWidget {
         ElevatedButton.icon(
           onPressed: () => _navigateToCreateEvent(context),
           icon: const Icon(Icons.add),
-          label: const Text('Create New Event'),
+          label: const Text('New Event'),
         ),
       ],
     );
@@ -312,14 +307,15 @@ class AdminDashboardView extends StatelessWidget {
                     Icons.people,
                   ),
                 ),
-                Expanded(
-                  child: _buildStatItem(
-                    context,
-                    'Judges',
-                    '${state.submittedJudgeCount}/${state.judgeBallotCount}',
-                    Icons.gavel,
+                if (state.judgeBallotCount > 0)
+                  Expanded(
+                    child: _buildStatItem(
+                      context,
+                      'Judges',
+                      '${state.submittedJudgeCount}/${state.judgeBallotCount}',
+                      Icons.gavel,
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -530,7 +526,7 @@ class AdminDashboardView extends StatelessWidget {
                 state.isClosingVoting
                     ? state.closingProgressText
                     : isVotingOpen
-                    ? 'Close Voting'
+                    ? 'Lock Voting'
                     : 'Re-Export Ballots',
               ),
             ),
@@ -551,7 +547,7 @@ class AdminDashboardView extends StatelessWidget {
                   ? null
                   : () => _navigateToCreateEvent(context),
               icon: const Icon(Icons.add),
-              label: const Text('Create New Event'),
+              label: const Text('New Event'),
             ),
           ],
         ),
@@ -625,6 +621,7 @@ class AdminDashboardView extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: DropdownButtonFormField<String>(
+            isExpanded: true,
             initialValue: selectedId,
             decoration: const InputDecoration(
               isDense: true,
@@ -635,7 +632,7 @@ class AdminDashboardView extends StatelessWidget {
                 .map(
                   (p) => DropdownMenuItem<String>(
                     value: p.id,
-                    child: Text(p.displayName),
+                    child: Text(p.displayName, overflow: TextOverflow.ellipsis),
                   ),
                 )
                 .toList(),
@@ -650,16 +647,60 @@ class AdminDashboardView extends StatelessWidget {
     context.go(AppRoutes.adminCreateEvent);
   }
 
+  void _showLogoutDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.logout_rounded, color: context.colorScheme.error, size: 24),
+            const SizedBox(width: 12),
+            const Text('Logout'),
+          ],
+        ),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.colorScheme.error,
+                    foregroundColor: context.colorScheme.onError,
+                  ),
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await FirebaseAuth.instance.signOut();
+                    if (context.mounted) {
+                      context.go(AppRoutes.adminLogin);
+                    }
+                  },
+                  child: const Text('Logout'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _confirmCloseVoting(BuildContext context, EventModel event) {
     final state = context.read<AdminBloc>().state;
     if (state is! AdminLoaded) return;
 
-    // Validate at least one audience and one judge ballot submitted
     final errors = <String>[];
     if (state.submittedAudienceCount == 0) {
       errors.add('at least one audience ballot');
     }
-    if (state.submittedJudgeCount == 0) {
+    if (state.judgeBallotCount > 0 && state.submittedJudgeCount == 0) {
       errors.add('at least one judge ballot');
     }
 
@@ -693,7 +734,7 @@ class AdminDashboardView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Close Voting?'),
+        title: const Text('Lock Voting?'),
         content: const Text(
           'This will close voting and export ballot data to Google Sheets. No more votes will be accepted. The results from the Google Sheets formulas will then be shown here.',
         ),
@@ -717,7 +758,7 @@ class AdminDashboardView extends StatelessWidget {
                     backgroundColor: context.colorScheme.error,
                     foregroundColor: context.colorScheme.onError,
                   ),
-                  child: const Text('Close Voting'),
+                  child: const Text('Lock'),
                 ),
               ),
             ],

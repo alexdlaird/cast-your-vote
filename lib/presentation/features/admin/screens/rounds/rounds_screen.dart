@@ -198,7 +198,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Save Changes'),
+                        : const Text('Save'),
                   );
                 },
               ),

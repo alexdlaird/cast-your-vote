@@ -90,11 +90,12 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
         final judgeBallots = ballots.where((b) => b.isJudge).toList()
           ..sort((a, b) => a.code.compareTo(b.code));
 
+        final hasJudges = judgeBallots.isNotEmpty;
         return Title(
           color: Theme.of(context).primaryColor,
           title: 'Ballot Codes | $eventName',
           child: DefaultTabController(
-          length: 2,
+          length: hasJudges ? 2 : 1,
           child: Scaffold(
             appBar: AppBar(
               leading: IconButton(
@@ -104,10 +105,10 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
               ),
               titleSpacing: 0,
               title: const Text('Ballot Codes'),
-              bottom: const TabBar(
+              bottom: TabBar(
                 tabs: [
-                  Tab(text: 'Audience'),
-                  Tab(text: 'Judges'),
+                  const Tab(text: 'Audience'),
+                  if (hasJudges) const Tab(text: 'Judges'),
                 ],
               ),
               actions: [
@@ -133,7 +134,7 @@ class _BallotCodesScreenState extends State<BallotCodesScreen> {
             body: TabBarView(
               children: [
                 _buildBallotList(context, audienceBallots, isJudge: false),
-                _buildBallotList(context, judgeBallots, isJudge: true),
+                if (hasJudges) _buildBallotList(context, judgeBallots, isJudge: true),
               ],
             ),
           ),

@@ -732,7 +732,7 @@ class _CategoryCommentFieldState extends State<_CategoryCommentField> {
       autofocus: true,
       maxLines: 2,
       decoration: const InputDecoration(
-        hintText: 'Optional comments for performer ...',
+        hintText: 'Optional comments for the performer ...',
         isDense: true,
       ),
     );

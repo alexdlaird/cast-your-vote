@@ -19,11 +19,17 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
     final String spreadsheetId;
 
+    final hasJudges = ballots.any((b) => b.isJudge && b.submitted);
+
     if (existingSpreadsheetId != null) {
       spreadsheetId = existingSpreadsheetId;
       await sheetsApi.spreadsheets.values.batchClear(
         sheets.BatchClearValuesRequest(
-          ranges: ['Audience Votes!A1:ZZ', 'Judge Votes!A1:ZZ', 'Summary!A1:ZZ'],
+          ranges: [
+            'Audience Votes!A1:ZZ',
+            if (hasJudges) 'Judge Votes!A1:ZZ',
+            'Summary!A1:ZZ',
+          ],
         ),
         spreadsheetId,
       );
@@ -42,9 +48,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
             sheets.Sheet(
               properties: sheets.SheetProperties(title: 'Audience Votes'),
             ),
-            sheets.Sheet(
-              properties: sheets.SheetProperties(title: 'Judge Votes'),
-            ),
+            if (hasJudges)
+              sheets.Sheet(
+                properties: sheets.SheetProperties(title: 'Judge Votes'),
+              ),
             sheets.Sheet(
               properties: sheets.SheetProperties(title: 'Summary'),
             ),
@@ -195,9 +202,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
 
     // ── Summary sheet ─────────────────────────────────────────────────────────
-    // Single round:  Participant | Audience Total | Judge Total | … | Combined
-    // Multi-round:   Participant | Aud R1 | Aud R2 | … | Audience Total |
-    //                             Jdg R1 | Jdg R2 | … | Judge Total | … | Combined
+    // With judges, single round:   Performer | Audience Total | Judge Total | … | Combined
+    // With judges, multi-round:    Performer | Aud R1..RN | Audience Total | Jdg R1..RN | Judge Total | … | Combined
+    // Without judges, single round: Performer | Audience Total | … | Combined
+    // Without judges, multi-round:  Performer | Aud R1..RN | Audience Total | … | Combined
     final summaryRows = <List<Object?>>[];
     if (isMultiRound) {
       final header = <Object?>['Performer'];
@@ -205,29 +213,28 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         header.add('Audience R${r.order}');
       }
       header.add('Audience Total');
-      for (final r in rounds) {
-        header.add('Judge R${r.order}');
+      if (hasJudges) {
+        for (final r in rounds) {
+          header.add('Judge R${r.order}');
+        }
+        header.add('Judge Total');
       }
-      header.add('Judge Total');
       header.addAll(['Donation', 'Highest Donation', 'Most Donations', 'Combined']);
       summaryRows.add(header);
 
-      // Column layout (1-indexed):
+      // Column layout (1-indexed), with judges:
       // 1: Participant
-      // 2..(1+rounds.length): Aud R1..RN
-      // (2+rounds.length): Audience Total
-      // (3+rounds.length)..(2+2*rounds.length): Jdg R1..RN
-      // (3+2*rounds.length): Judge Total
-      // (4+2*rounds.length): Donation
-      // (5+2*rounds.length): Highest Donation
-      // (6+2*rounds.length): Most Donations
-      // (7+2*rounds.length): Combined
+      // 2..(1+n): Aud R1..RN
+      // (2+n): Audience Total
+      // (3+n)..(2+2n): Jdg R1..RN  [omitted without judges]
+      // (3+2n): Judge Total         [omitted without judges]
+      // next: Donation, Highest Donation, Most Donations, Combined
       final n = rounds.length;
       final audTotalCol = _columnLetter(2 + n);
-      final jdgTotalCol = _columnLetter(3 + 2 * n);
-      final donationCol = _columnLetter(4 + 2 * n);
-      final highDonCol  = _columnLetter(5 + 2 * n);
-      final mostDonCol  = _columnLetter(6 + 2 * n);
+      final jdgTotalCol = hasJudges ? _columnLetter(3 + 2 * n) : null;
+      final donationCol = _columnLetter(hasJudges ? 4 + 2 * n : 3 + n);
+      final highDonCol  = _columnLetter(hasJudges ? 5 + 2 * n : 4 + n);
+      final mostDonCol  = _columnLetter(hasJudges ? 6 + 2 * n : 5 + n);
 
       for (var i = 0; i < participants.length; i++) {
         final p = participants[i];
@@ -238,36 +245,30 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
         final rowData = <Object?>[p.displayName];
 
-        // Audience per-round: SUMIF on round's column range in Audience Votes
         for (var ri = 0; ri < rounds.length; ri++) {
-          // Audience Votes columns for this round: cols 2+ri*participants.length
-          // through 1+(ri+1)*participants.length (1-indexed)
           final startCol = _columnLetter(2 + ri * participants.length + i);
           rowData.add("=SUM('Audience Votes'!${startCol}2:$startCol)");
         }
 
-        // Audience Total = sum of Aud R1..RN columns for this row
         final audStartCol = _columnLetter(2);
         final audEndCol = _columnLetter(1 + n);
         rowData.add('=SUM($audStartCol$row:$audEndCol$row)');
 
-        // Judge per-round: SUMIF where Participant=name AND Round=Rn
-        // Total is column M in multi-round layout (D=Participant, B=Round).
-        // Start ranges from row 2 to exclude the header row.
-        for (final round in rounds) {
-          rowData.add(
-            "=SUMPRODUCT(('Judge Votes'!D2:D=\"${p.displayName}\")*('Judge Votes'!B2:B=\"R${round.order}\")*'Judge Votes'!M2:M)",
-          );
+        if (hasJudges) {
+          for (final round in rounds) {
+            rowData.add(
+              "=SUMPRODUCT(('Judge Votes'!D2:D=\"${p.displayName}\")*('Judge Votes'!B2:B=\"R${round.order}\")*'Judge Votes'!M2:M)",
+            );
+          }
+          final jdgStartCol = _columnLetter(3 + n);
+          final jdgEndCol   = _columnLetter(2 + 2 * n);
+          rowData.add('=SUM($jdgStartCol$row:$jdgEndCol$row)');
         }
 
-        // Judge Total
-        final jdgStartCol = _columnLetter(3 + n);
-        final jdgEndCol   = _columnLetter(2 + 2 * n);
-        rowData.add('=SUM($jdgStartCol$row:$jdgEndCol$row)');
-
         rowData.addAll([donation, highestDonation, mostDonations]);
+        final judgePart = hasJudges ? '+$jdgTotalCol$row' : '';
         rowData.add(
-          '=$audTotalCol$row+$jdgTotalCol$row+$donationCol$row+$highDonCol$row+$mostDonCol$row',
+          '=$audTotalCol$row${judgePart}+$donationCol$row+$highDonCol$row+$mostDonCol$row',
         );
         summaryRows.add(rowData);
       }
@@ -275,7 +276,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       summaryRows.add([
         'Performer',
         'Audience Total',
-        'Judge Total',
+        if (hasJudges) 'Judge Total',
         'Donation',
         'Highest Donation',
         'Most Donations',
@@ -288,16 +289,20 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         final donation = p.hasDonation ? 1 : 0;
         final highestDonation = event.largestDonationWinnerId == p.id ? 1 : 0;
         final mostDonations = event.mostDonationsWinnerId == p.id ? 1 : 0;
+        // Without judges: B=Audience, C=Donation, D=Highest, E=Most, F=Combined
+        // With judges:    B=Audience, C=Judge,    D=Donation, E=Highest, F=Most, G=Combined
+        final combinedFormula = hasJudges
+            ? '=B$row+C$row+D$row+E$row+F$row'
+            : '=B$row+C$row+D$row+E$row';
         summaryRows.add([
           p.displayName,
           "=SUM('Audience Votes'!${col}2:$col)",
-          // Total is column L in single-round layout (C=Participant).
-          // Start ranges from row 2 to exclude the header row.
-          "=SUMIF('Judge Votes'!C2:C,\"${p.displayName}\",'Judge Votes'!L2:L)",
+          if (hasJudges)
+            "=SUMIF('Judge Votes'!C2:C,\"${p.displayName}\",'Judge Votes'!L2:L)",
           donation,
           highestDonation,
           mostDonations,
-          '=B$row+C$row+D$row+E$row+F$row',
+          combinedFormula,
         ]);
       }
     }
@@ -310,10 +315,11 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
             range: 'Audience Votes!A1',
             values: audienceRows,
           ),
-          sheets.ValueRange(
-            range: 'Judge Votes!A1',
-            values: judgeRows,
-          ),
+          if (hasJudges)
+            sheets.ValueRange(
+              range: 'Judge Votes!A1',
+              values: judgeRows,
+            ),
           sheets.ValueRange(
             range: 'Summary!A1',
             values: summaryRows,

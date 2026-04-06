@@ -635,7 +635,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         closingProgress: ClosingProgress.exportComplete,
       ));
     } catch (e, stackTrace) {
-      _log.severe('Failed to close voting', e, stackTrace);
+      _log.severe('Failed to lock voting', e, stackTrace);
       if (state is AdminLoaded) {
         emit((state as AdminLoaded).copyWith(closingProgress: ClosingProgress.none));
       }

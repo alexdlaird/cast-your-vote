@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -71,6 +73,7 @@ class AppRouter {
           GoRoute(
             path: AppRoutes.adminCreateEvent,
             builder: (context, state) {
+              final editRequested = state.uri.queryParameters['edit'] == 'true';
               return BlocBuilder<AdminBloc, AdminState>(
                 buildWhen: (previous, current) {
                   if (current is! AdminLoaded) return false;
@@ -89,31 +92,49 @@ class AppRouter {
                     );
                   }
 
-                  String? editEventId;
-                  String? previousEventName;
-                  List<ParticipantModel>? previousParticipants;
-                  List<JudgeModel>? previousJudges;
-                  int? previousAudienceCount;
+                  final currentEvent = adminState.currentEvent;
+                  // Edit mode only when explicitly requested and there is an
+                  // open event to edit; otherwise fall back to create mode.
+                  final isEditMode = editRequested &&
+                      currentEvent != null &&
+                      currentEvent.isVotingOpen;
 
-                  if (adminState.currentEvent != null) {
-                    final currentEvent = adminState.currentEvent!;
-                    editEventId = currentEvent.id;
-                    previousEventName = currentEvent.name;
-                    previousParticipants = List<ParticipantModel>.from(
-                      currentEvent.participants,
-                    )..sort((a, b) => a.order.compareTo(b.order));
-                    previousJudges = currentEvent.judges;
-                    previousAudienceCount = adminState.audienceBallotCount;
+                  List<ParticipantModel>? previousParticipants;
+                  if (currentEvent != null) {
+                    if (isEditMode) {
+                      previousParticipants =
+                          List<ParticipantModel>.from(currentEvent.participants)
+                            ..sort((a, b) => a.order.compareTo(b.order));
+                    } else {
+                      // Create new: exclude eliminated performer, shuffle
+                      // order, and reset IDs so new records are created.
+                      final eliminatedId =
+                          adminState.votingResults?.eliminatedParticipantId;
+                      previousParticipants = (currentEvent.participants
+                              .where((p) =>
+                                  eliminatedId == null || p.id != eliminatedId)
+                              .toList()
+                            ..shuffle(Random()))
+                          .asMap()
+                          .entries
+                          .map((e) => ParticipantModel(
+                                id: '',
+                                name: e.value.name,
+                                order: e.key + 1,
+                              ))
+                          .toList();
+                    }
                   }
 
                   return CreateEventScreen(
-                    editEventId: editEventId,
-                    previousEventName: previousEventName,
+                    editEventId: isEditMode ? currentEvent.id : null,
+                    hasExistingEvent: !isEditMode && currentEvent != null,
+                    previousEventName: currentEvent?.name,
                     previousParticipants: previousParticipants,
-                    previousJudges: previousJudges,
-                    previousAudienceCount: previousAudienceCount,
-                    previousLogoUrl: adminState.currentEvent?.logoUrl,
-                    previousRounds: adminState.currentEvent?.rounds ?? const [],
+                    previousJudges: currentEvent?.judges,
+                    previousAudienceCount: adminState.audienceBallotCount,
+                    previousLogoUrl: currentEvent?.logoUrl,
+                    previousRounds: isEditMode ? currentEvent.rounds : const [],
                   );
                 },
               );

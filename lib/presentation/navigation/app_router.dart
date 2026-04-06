@@ -10,6 +10,7 @@ import 'package:cast_your_vote/presentation/features/admin/screens/admin_login_s
 import 'package:cast_your_vote/presentation/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:cast_your_vote/presentation/features/admin/screens/ballot_codes_screen.dart';
 import 'package:cast_your_vote/presentation/features/admin/screens/create_event_screen.dart';
+import 'package:cast_your_vote/presentation/features/admin/screens/rounds/rounds_screen.dart';
 import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:cast_your_vote/data/repositories/event_repository_impl.dart';
 import 'package:cast_your_vote/data/models/models.dart';
@@ -131,7 +132,22 @@ class AppRouter {
                 previousLogoUrl: adminState is AdminLoaded
                     ? adminState.currentEvent?.logoUrl
                     : null,
+                previousRounds: isEditMode &&
+                        adminState is AdminLoaded &&
+                        adminState.currentEvent != null
+                    ? adminState.currentEvent!.rounds
+                    : const [],
               );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.adminRounds,
+            builder: (context, state) {
+              final args = state.extra as RoundsScreenArgs?;
+              if (args == null) {
+                return const SizedBox.shrink();
+              }
+              return RoundsScreen(args: args);
             },
           ),
         ],

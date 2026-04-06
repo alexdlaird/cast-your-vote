@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 import 'package:cast_your_vote/data/models/judge_model.dart';
 import 'package:cast_your_vote/data/models/participant_model.dart';
+import 'package:cast_your_vote/data/models/round_model.dart';
 import 'package:cast_your_vote/data/models/voting_results_model.dart';
 
 enum EventStatus { open, closed }
@@ -18,6 +19,7 @@ class EventModel extends Equatable {
   final String? spreadsheetUrl;
   final String? logoUrl;
   final VotingResults? votingResults;
+  final List<RoundModel> rounds;
 
   const EventModel({
     required this.id,
@@ -31,6 +33,7 @@ class EventModel extends Equatable {
     this.spreadsheetUrl,
     this.logoUrl,
     this.votingResults,
+    this.rounds = const <RoundModel>[],
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json, String id) {
@@ -54,6 +57,10 @@ class EventModel extends Equatable {
       votingResults: votingResultsJson != null
           ? VotingResults.fromJson(votingResultsJson)
           : null,
+      rounds: (json['rounds'] as List<dynamic>?)
+              ?.map((r) => RoundModel.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          const <RoundModel>[],
     );
   }
 
@@ -69,12 +76,15 @@ class EventModel extends Equatable {
       'spreadsheetUrl': spreadsheetUrl,
       'logoUrl': logoUrl,
       'votingResults': votingResults?.toJson(),
+      'rounds': rounds.map((r) => r.toJson()).toList(),
     };
   }
 
   int get participantCount => participants.length;
 
   bool get isVotingOpen => status == EventStatus.open;
+
+  bool get isMultiRound => rounds.length > 1;
 
   EventModel copyWith({
     String? id,
@@ -88,6 +98,7 @@ class EventModel extends Equatable {
     String? spreadsheetUrl,
     String? logoUrl,
     VotingResults? votingResults,
+    List<RoundModel>? rounds,
     bool clearLargestDonationWinner = false,
     bool clearMostDonationsWinner = false,
     bool clearVotingResults = false,
@@ -110,6 +121,7 @@ class EventModel extends Equatable {
       votingResults: clearVotingResults
           ? null
           : (votingResults ?? this.votingResults),
+      rounds: rounds ?? this.rounds,
     );
   }
 
@@ -126,5 +138,6 @@ class EventModel extends Equatable {
         spreadsheetUrl,
         logoUrl,
         votingResults,
+        rounds,
       ];
 }

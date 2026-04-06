@@ -56,6 +56,7 @@ class CreateEvent extends AdminEvent {
   final List<String> participantNames;
   final int audienceBallotCount;
   final List<JudgeModel> judges;
+  final List<RoundModel> rounds;
   final String? previousLogoUrl;
   final Uint8List? logoBytes;
   final String? logoMimeType;
@@ -66,6 +67,7 @@ class CreateEvent extends AdminEvent {
     required this.participantNames,
     required this.audienceBallotCount,
     required this.judges,
+    required this.rounds,
     this.previousLogoUrl,
     this.logoBytes,
     this.logoMimeType,
@@ -74,7 +76,7 @@ class CreateEvent extends AdminEvent {
 
   @override
   List<Object?> get props =>
-      [name, participantNames, audienceBallotCount, judges, previousLogoUrl];
+      [name, participantNames, audienceBallotCount, judges, rounds, previousLogoUrl];
 }
 
 class UpdateParticipantDonation extends AdminEvent {
@@ -95,6 +97,7 @@ class UpdateEvent extends AdminEvent {
   final String name;
   final List<ParticipantModel> participants;
   final List<JudgeModel> judges;
+  final List<RoundModel> rounds;
   final int audienceBallotCount;
   final Uint8List? logoBytes;
   final String? logoMimeType;
@@ -105,6 +108,7 @@ class UpdateEvent extends AdminEvent {
     required this.name,
     required this.participants,
     required this.judges,
+    required this.rounds,
     required this.audienceBallotCount,
     this.logoBytes,
     this.logoMimeType,
@@ -112,7 +116,7 @@ class UpdateEvent extends AdminEvent {
   });
 
   @override
-  List<Object?> get props => [eventId, name, participants, judges, audienceBallotCount];
+  List<Object?> get props => [eventId, name, participants, judges, rounds, audienceBallotCount];
 }
 
 class UpdateParticipantDropout extends AdminEvent {
@@ -385,6 +389,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           status: EventStatus.open,
           createdAt: DateTime.now(),
           logoUrl: event.previousLogoUrl,
+          rounds: event.rounds,
         ),
       );
 
@@ -487,6 +492,7 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         participants: updatedParticipants,
         judges: updatedJudges,
         logoUrl: logoUrl,
+        rounds: event.rounds,
       );
       await _eventRepository.updateEvent(updatedEvent);
 
@@ -757,9 +763,11 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
       );
 
       if (!event.droppedOut) {
+        final roundIds = currentEvent.rounds.map((r) => r.id).toList();
         await _ballotRepository.clearParticipantVotes(
           currentEvent.id,
           event.participantId,
+          roundIds,
         );
       }
     } catch (e, stackTrace) {

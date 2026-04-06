@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Cast Your Vote. MIT License.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cast_your_vote/data/models/models.dart';
@@ -36,12 +38,14 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   List<ParticipantModel> _unranked = [];
   List<ParticipantModel> _ranked = [];
   bool _initialized = false;
+  String? _lastRoundId;
 
   void _initFromState(BallotLoaded state) {
+    final roundId = state.currentRound.id;
     final active = state.event.participants.where((p) => !p.droppedOut).toList()
       ..sort((a, b) => a.order.compareTo(b.order));
 
-    final votes = state.ballot.audienceVotes;
+    final votes = state.ballot.audienceVotesForRound(roundId);
     final ranked = active.where((p) => votes.containsKey(p.id)).toList()
       ..sort((a, b) => votes[a.id]!.compareTo(votes[b.id]!));
     final unranked = active.where((p) => !votes.containsKey(p.id)).toList();
@@ -50,17 +54,11 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
       _ranked = ranked;
       _unranked = unranked;
       _initialized = true;
+      _lastRoundId = roundId;
     });
   }
 
-  /// Inserts [participant] before the ranked card at [dropIndex].
-  /// Adjusts for the case where the item was already in [_ranked] —
-  /// removing it shifts subsequent indices by 1.
-  void _dropAt(
-    BuildContext context,
-    ParticipantModel participant,
-    int dropIndex,
-  ) {
+  void _dropAt(BuildContext context, ParticipantModel participant, int dropIndex) {
     final fromRankedIndex = _ranked.indexOf(participant);
     final wasInRanked = fromRankedIndex != -1;
     setState(() {
@@ -89,15 +87,24 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   }
 
   void _syncVotes(BuildContext context) {
+    final bloc = context.read<BallotBloc>();
+    final state = bloc.state;
+    if (state is! BallotLoaded) return;
+    final roundId = state.currentRound.id;
+
     for (final p in _unranked) {
-      context.read<BallotBloc>().add(
-        UpdateAudienceVote(participantId: p.id, rank: null),
-      );
+      bloc.add(UpdateAudienceVote(
+        roundId: roundId,
+        participantId: p.id,
+        rank: null,
+      ));
     }
     for (var i = 0; i < _ranked.length; i++) {
-      context.read<BallotBloc>().add(
-        UpdateAudienceVote(participantId: _ranked[i].id, rank: i + 1),
-      );
+      bloc.add(UpdateAudienceVote(
+        roundId: roundId,
+        participantId: _ranked[i].id,
+        rank: i + 1,
+      ));
     }
   }
 
@@ -111,17 +118,58 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     });
   }
 
+  void _confirmAdvanceRound(BuildContext context, BallotLoaded state) {
+    final roundNum = state.ballot.currentRoundIndex + 1;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Lock This Round?'),
+        content: Text(
+          "You won't be able to change your Round $roundNum votes after this. Continue?",
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    context.read<BallotBloc>().add(const AdvanceRound());
+                  },
+                  child: const Text('Continue'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<BallotBloc, BallotState>(
       listenWhen: (previous, current) =>
           current is BallotError ||
-          (current is BallotLoaded && previous is! BallotLoaded),
+          (current is BallotLoaded &&
+              (previous is! BallotLoaded ||
+                  (previous).ballot.currentRoundIndex !=
+                      (current).ballot.currentRoundIndex)),
       listener: (context, state) {
         if (state is BallotError) {
           SnackBarHelper.show(context, state.message, type: SnackType.error);
-        } else if (state is BallotLoaded && !_initialized) {
-          _initFromState(state);
+        } else if (state is BallotLoaded) {
+          final roundId = state.currentRound.id;
+          if (!_initialized || _lastRoundId != roundId) {
+            _initFromState(state);
+          }
         }
       },
       builder: (context, state) {
@@ -156,16 +204,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.check_circle,
-              size: 64,
-              color: context.colorScheme.primary,
-            ),
+            Icon(Icons.check_circle, size: 64, color: context.colorScheme.primary),
             const SizedBox(height: 16),
-            Text(
-              'Thank you for voting!',
-              style: context.textTheme.headlineSmall,
-            ),
+            Text('Thank you for voting!', style: context.textTheme.headlineSmall),
           ],
         ),
       ),
@@ -179,11 +220,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.lock,
-              size: 64,
-              color: context.colorScheme.onSurfaceVariant,
-            ),
+            Icon(Icons.lock, size: 64, color: context.colorScheme.onSurfaceVariant),
             const SizedBox(height: 16),
             Text('Voting has closed', style: context.textTheme.headlineSmall),
           ],
@@ -200,11 +237,13 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   }
 
   Widget _buildBallotView(BuildContext context, BallotLoaded state) {
-    final droppedOut =
-        state.event.participants.where((p) => p.droppedOut).toList()
-          ..sort((a, b) => a.order.compareTo(b.order));
+    final droppedOut = state.event.participants.where((p) => p.droppedOut).toList()
+      ..sort((a, b) => a.order.compareTo(b.order));
 
-    final canSubmit = _unranked.isEmpty && !state.isSubmitting;
+    final canSubmit = _unranked.isEmpty && !state.isSubmitting && !state.isAdvancingRound;
+    final isMultiRound = state.event.isMultiRound;
+    final isLastRound = state.isOnLastRound;
+    final round = state.currentRound;
 
     return AppScaffold(
       title: 'Ballot for "${state.event.name}"',
@@ -217,6 +256,8 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
       ],
       body: Column(
         children: [
+          if (isMultiRound)
+            _buildRoundIndicator(context, state, round),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
@@ -247,30 +288,39 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: _buildUnrankedColumn(context)),
+                  Expanded(child: _buildUnrankedColumn(context, state)),
                   const SizedBox(width: 8),
-                  Expanded(child: _buildRankedColumn(context, droppedOut)),
+                  Expanded(child: _buildRankedColumn(context, droppedOut, state)),
                 ],
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
-            child: ElevatedButton(
-              onPressed: canSubmit
-                  ? () => context.read<BallotBloc>().add(const SubmitBallot())
-                  : null,
-              child: state.isSubmitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      _unranked.isEmpty
-                          ? 'Submit Vote'
-                          : 'Rank all performers to submit',
-                    ),
+            child: _buildActionButton(context, state, canSubmit, isMultiRound, isLastRound),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRoundIndicator(BuildContext context, BallotLoaded state, RoundModel round) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: context.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'Round ${round.order} of ${state.totalRounds}',
+              style: context.textTheme.labelMedium?.copyWith(
+                color: context.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -278,18 +328,55 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     );
   }
 
-  Widget _buildColumnHeader(
+  Widget _buildActionButton(
     BuildContext context,
-    String label,
-    int? count,
-    Color color,
+    BallotLoaded state,
+    bool canSubmit,
+    bool isMultiRound,
+    bool isLastRound,
   ) {
+    if (state.isAdvancingRound) {
+      return const ElevatedButton(
+        onPressed: null,
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (isMultiRound && !isLastRound) {
+      return ElevatedButton(
+        onPressed: canSubmit
+            ? () => _confirmAdvanceRound(context, state)
+            : null,
+        child: Text(
+          _unranked.isEmpty ? 'Next Round' : 'Rank all performers to continue',
+        ),
+      );
+    }
+
+    return ElevatedButton(
+      onPressed: canSubmit
+          ? () => context.read<BallotBloc>().add(const SubmitBallot())
+          : null,
+      child: state.isSubmitting
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(
+              _unranked.isEmpty ? 'Submit Vote' : 'Rank all performers to submit',
+            ),
+    );
+  }
+
+  Widget _buildColumnHeader(BuildContext context, String label, int? count, Color color) {
     return Row(
       children: [
-        Text(
-          label,
-          style: context.textTheme.labelLarge?.copyWith(color: color),
-        ),
+        Text(label, style: context.textTheme.labelLarge?.copyWith(color: color)),
         if (count != null) ...[
           const SizedBox(width: 6),
           Container(
@@ -308,7 +395,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     );
   }
 
-  Widget _buildUnrankedColumn(BuildContext context) {
+  Widget _buildUnrankedColumn(BuildContext context, BallotLoaded state) {
     return DragTarget<ParticipantModel>(
       onWillAcceptWithDetails: (details) => _ranked.contains(details.data),
       onAcceptWithDetails: (details) => _moveToUnranked(context, details.data),
@@ -321,10 +408,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
                 ? context.colorScheme.surfaceContainerHighest
                 : Colors.transparent,
             border: isHovered
-                ? Border.all(
-                    color: context.colorScheme.outlineVariant,
-                    width: 1.5,
-                  )
+                ? Border.all(color: context.colorScheme.outlineVariant, width: 1.5)
                 : null,
           ),
           child: SingleChildScrollView(
@@ -332,7 +416,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
             child: Column(
               children: [
                 for (final p in _unranked)
-                  _buildDraggableCard(context, p, isRanked: false),
+                  _buildDraggableCard(context, p, isRanked: false, state: state),
               ],
             ),
           ),
@@ -344,6 +428,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   Widget _buildRankedColumn(
     BuildContext context,
     List<ParticipantModel> droppedOut,
+    BallotLoaded state,
   ) {
     if (_ranked.isEmpty) {
       return DragTarget<ParticipantModel>(
@@ -356,9 +441,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               borderRadius: BorderRadius.circular(12),
               color: isHovered
                   ? ctx.colorScheme.primary.withValues(alpha: 0.08)
-                  : ctx.colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.3,
-                    ),
+                  : ctx.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
               border: Border.all(
                 color: isHovered
                     ? ctx.colorScheme.primary
@@ -403,7 +486,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < _ranked.length; i++)
-                  _buildRankedSlot(context, i),
+                  _buildRankedSlot(context, i, state),
                 _buildTailDropZone(context),
               ],
             ),
@@ -415,10 +498,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     );
   }
 
-  /// A [DragTarget] wrapping a single ranked card. When any other card hovers
-  /// over it, a thin insertion indicator appears above it, signalling that the
-  /// dragged item will be placed before this one.
-  Widget _buildRankedSlot(BuildContext context, int index) {
+  Widget _buildRankedSlot(BuildContext context, int index, BallotLoaded state) {
     final participant = _ranked[index];
     return DragTarget<ParticipantModel>(
       key: ValueKey('slot_${participant.id}'),
@@ -431,14 +511,13 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (isHovered) _buildInsertionIndicator(ctx),
-            _buildDraggableCard(ctx, participant, isRanked: true),
+            _buildDraggableCard(ctx, participant, isRanked: true, state: state),
           ],
         );
       },
     );
   }
 
-  /// Drop zone below all ranked cards — appends the dragged item at the end.
   Widget _buildTailDropZone(BuildContext context) {
     return DragTarget<ParticipantModel>(
       onWillAcceptWithDetails: (d) => !d.data.droppedOut,
@@ -453,20 +532,11 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               ? BoxDecoration(
                   color: ctx.colorScheme.primary.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: ctx.colorScheme.primary,
-                    width: 2,
-                  ),
+                  border: Border.all(color: ctx.colorScheme.primary, width: 2),
                 )
               : null,
           child: isHovered
-              ? Center(
-                  child: Icon(
-                    Icons.add,
-                    size: 16,
-                    color: ctx.colorScheme.primary,
-                  ),
-                )
+              ? Center(child: Icon(Icons.add, size: 16, color: ctx.colorScheme.primary))
               : null,
         );
       },
@@ -488,21 +558,31 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     BuildContext context,
     ParticipantModel participant, {
     required bool isRanked,
+    required BallotLoaded state,
   }) {
     return Draggable<ParticipantModel>(
       key: ValueKey(participant.id),
       data: participant,
-      feedback: _buildDragFeedback(context, participant),
-      childWhenDragging: _buildDragPlaceholder(context, participant),
-      child: _buildCard(context, participant, isRanked: isRanked),
+      feedback: _buildDragFeedback(context, participant, state),
+      childWhenDragging: _buildDragPlaceholder(context, participant, state),
+      child: _buildCard(context, participant, isRanked: isRanked, state: state),
     );
+  }
+
+  String? _entryTitle(ParticipantModel participant, BallotLoaded state) {
+    if (!state.event.isMultiRound && state.event.rounds.isEmpty) return null;
+    if (state.event.rounds.isEmpty) return null;
+    final round = state.currentRound;
+    return round.entryForParticipant(participant.id)?.title;
   }
 
   Widget _buildCard(
     BuildContext context,
     ParticipantModel participant, {
     required bool isRanked,
+    required BallotLoaded state,
   }) {
+    final title = _entryTitle(participant, state);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Card(
@@ -528,17 +608,27 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
                 size: 18,
                 color: isRanked
                     ? context.colorScheme.primary.withValues(alpha: 0.6)
-                    : context.colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.5,
-                      ),
+                    : context.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  participant.displayName,
-                  style: context.textTheme.bodyMedium?.copyWith(
-                    fontWeight: isRanked ? FontWeight.w500 : FontWeight.normal,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      participant.displayName,
+                      style: context.textTheme.bodyMedium?.copyWith(
+                        fontWeight: isRanked ? FontWeight.w500 : FontWeight.normal,
+                      ),
+                    ),
+                    if (title != null && title.isNotEmpty)
+                      Text(
+                        title,
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: context.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -551,7 +641,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   Widget _buildDragFeedback(
     BuildContext context,
     ParticipantModel participant,
+    BallotLoaded state,
   ) {
+    final title = _entryTitle(participant, state);
     return Material(
       elevation: 6,
       borderRadius: BorderRadius.circular(8),
@@ -561,18 +653,28 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
           children: [
-            Icon(
-              Icons.drag_handle,
-              size: 18,
-              color: context.colorScheme.primary.withValues(alpha: 0.6),
-            ),
+            Icon(Icons.drag_handle, size: 18,
+                color: context.colorScheme.primary.withValues(alpha: 0.6)),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                participant.displayName,
-                style: context.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    participant.displayName,
+                    style: context.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (title != null && title.isNotEmpty)
+                    Text(
+                      title,
+                      style: context.textTheme.bodySmall?.copyWith(
+                        color: context.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -584,7 +686,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   Widget _buildDragPlaceholder(
     BuildContext context,
     ParticipantModel participant,
+    BallotLoaded state,
   ) {
+    final title = _entryTitle(participant, state);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Container(
@@ -593,9 +697,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
           border: Border.all(
             color: context.colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
-          color: context.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.3,
-          ),
+          color: context.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
@@ -603,11 +705,22 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
             const SizedBox(width: 18),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                participant.displayName,
-                style: context.textTheme.bodyMedium?.copyWith(
-                  color: Colors.transparent,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    participant.displayName,
+                    style: context.textTheme.bodyMedium
+                        ?.copyWith(color: Colors.transparent),
+                  ),
+                  if (title != null && title.isNotEmpty)
+                    Text(
+                      title,
+                      style: context.textTheme.bodySmall
+                          ?.copyWith(color: Colors.transparent),
+                    ),
+                ],
               ),
             ),
           ],
@@ -616,10 +729,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     );
   }
 
-  Widget _buildDroppedOutCard(
-    BuildContext context,
-    ParticipantModel participant,
-  ) {
+  Widget _buildDroppedOutCard(BuildContext context, ParticipantModel participant) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Container(
@@ -631,13 +741,8 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         child: Row(
           children: [
-            Icon(
-              Icons.person_off,
-              size: 16,
-              color: context.colorScheme.onSurfaceVariant.withValues(
-                alpha: 0.5,
-              ),
-            ),
+            Icon(Icons.person_off, size: 16,
+                color: context.colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

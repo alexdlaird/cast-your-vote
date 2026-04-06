@@ -1,3 +1,5 @@
+// Copyright (c) 2024 Cast Your Vote. MIT License.
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
@@ -27,8 +29,7 @@ class JudgeVote extends Equatable {
       songFit: json['songFit'] as int,
       singingComments: json['singingComments'] as String? ?? '',
       performanceComments: json['performanceComments'] as String? ?? '',
-      songFitComments:
-          json['songFitComments'] as String? ?? '',
+      songFitComments: json['songFitComments'] as String? ?? '',
     );
   }
 
@@ -54,12 +55,10 @@ class JudgeVote extends Equatable {
     return JudgeVote(
       singing: singing ?? this.singing,
       performance: performance ?? this.performance,
-      songFit:
-          songFit ?? this.songFit,
+      songFit: songFit ?? this.songFit,
       singingComments: singingComments ?? this.singingComments,
       performanceComments: performanceComments ?? this.performanceComments,
-      songFitComments:
-          songFitComments ?? this.songFitComments,
+      songFitComments: songFitComments ?? this.songFitComments,
     );
   }
 
@@ -74,13 +73,16 @@ class JudgeVote extends Equatable {
       ];
 }
 
+/// Votes are keyed by round ID then participant ID.
+/// e.g. audienceVotes['r1']['p1'] = 2
 class BallotModel extends Equatable {
   final String code;
   final BallotType type;
   final String eventId;
   final bool submitted;
-  final Map<String, int> audienceVotes;
-  final Map<String, JudgeVote> judgeVotes;
+  final Map<String, Map<String, int>> audienceVotes;
+  final Map<String, Map<String, JudgeVote>> judgeVotes;
+  final int currentRoundIndex;
   final DateTime createdAt;
   final DateTime? submittedAt;
   final String? judgeId;
@@ -94,6 +96,7 @@ class BallotModel extends Equatable {
     required this.submitted,
     this.audienceVotes = const {},
     this.judgeVotes = const {},
+    this.currentRoundIndex = 0,
     required this.createdAt,
     this.submittedAt,
     this.judgeId,
@@ -108,10 +111,26 @@ class BallotModel extends Equatable {
       type: type,
       eventId: json['eventId'] as String,
       submitted: json['submitted'] as bool,
-      audienceVotes: (json['audienceVotes'] as Map<String, dynamic>)
-              .map((k, v) => MapEntry(k, v as int)),
-      judgeVotes: (json['judgeVotes'] as Map<String, dynamic>).map((k, v) =>
-              MapEntry(k, JudgeVote.fromJson(v as Map<String, dynamic>))),
+      audienceVotes: (json['audienceVotes'] as Map<String, dynamic>).map(
+        (roundId, votes) => MapEntry(
+          roundId,
+          (votes as Map<String, dynamic>).map(
+            (participantId, rank) => MapEntry(participantId, rank as int),
+          ),
+        ),
+      ),
+      judgeVotes: (json['judgeVotes'] as Map<String, dynamic>).map(
+        (roundId, votes) => MapEntry(
+          roundId,
+          (votes as Map<String, dynamic>).map(
+            (participantId, vote) => MapEntry(
+              participantId,
+              JudgeVote.fromJson(vote as Map<String, dynamic>),
+            ),
+          ),
+        ),
+      ),
+      currentRoundIndex: (json['currentRoundIndex'] as int?) ?? 0,
       createdAt: (json['createdAt'] as Timestamp).toDate(),
       submittedAt: json['submittedAt'] != null
           ? (json['submittedAt'] as Timestamp).toDate()
@@ -127,8 +146,16 @@ class BallotModel extends Equatable {
       'type': type.name,
       'eventId': eventId,
       'submitted': submitted,
-      'audienceVotes': audienceVotes,
-      'judgeVotes': judgeVotes.map((k, v) => MapEntry(k, v.toJson())),
+      'audienceVotes': audienceVotes.map(
+        (roundId, votes) => MapEntry(roundId, votes),
+      ),
+      'judgeVotes': judgeVotes.map(
+        (roundId, votes) => MapEntry(
+          roundId,
+          votes.map((participantId, vote) => MapEntry(participantId, vote.toJson())),
+        ),
+      ),
+      'currentRoundIndex': currentRoundIndex,
       'createdAt': Timestamp.fromDate(createdAt),
       'submittedAt':
           submittedAt != null ? Timestamp.fromDate(submittedAt!) : null,
@@ -138,6 +165,16 @@ class BallotModel extends Equatable {
     };
   }
 
+  Map<String, int> audienceVotesForRound(String roundId) {
+    return audienceVotes[roundId] ?? {};
+  }
+
+  Map<String, JudgeVote> judgeVotesForRound(String roundId) {
+    return judgeVotes[roundId] ?? {};
+  }
+
+  bool isRoundLocked(int roundIndex) => roundIndex < currentRoundIndex;
+
   bool get isAudience => type == BallotType.audience;
   bool get isJudge => type == BallotType.judge;
 
@@ -146,8 +183,9 @@ class BallotModel extends Equatable {
     BallotType? type,
     String? eventId,
     bool? submitted,
-    Map<String, int>? audienceVotes,
-    Map<String, JudgeVote>? judgeVotes,
+    Map<String, Map<String, int>>? audienceVotes,
+    Map<String, Map<String, JudgeVote>>? judgeVotes,
+    int? currentRoundIndex,
     DateTime? createdAt,
     DateTime? submittedAt,
     String? judgeId,
@@ -161,6 +199,7 @@ class BallotModel extends Equatable {
       submitted: submitted ?? this.submitted,
       audienceVotes: audienceVotes ?? this.audienceVotes,
       judgeVotes: judgeVotes ?? this.judgeVotes,
+      currentRoundIndex: currentRoundIndex ?? this.currentRoundIndex,
       createdAt: createdAt ?? this.createdAt,
       submittedAt: submittedAt ?? this.submittedAt,
       judgeId: judgeId ?? this.judgeId,
@@ -177,6 +216,7 @@ class BallotModel extends Equatable {
         submitted,
         audienceVotes,
         judgeVotes,
+        currentRoundIndex,
         createdAt,
         submittedAt,
         judgeId,

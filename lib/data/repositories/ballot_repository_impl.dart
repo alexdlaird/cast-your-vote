@@ -181,19 +181,23 @@ class BallotRepositoryImpl implements BallotRepository {
   Future<void> clearParticipantVotes(
     String eventId,
     String participantId,
+    List<String> roundIds,
   ) async {
     final snapshot = await _ballotsCollection
         .where('eventId', isEqualTo: eventId)
         .where('type', isEqualTo: 'audience')
         .get();
 
+    final deletions = {
+      for (final roundId in roundIds)
+        'audienceVotes.$roundId.$participantId': FieldValue.delete(),
+    };
+
     for (var i = 0; i < snapshot.docs.length; i += 500) {
       final batch = _firestore.batch();
       final end = (i + 500 < snapshot.docs.length) ? i + 500 : snapshot.docs.length;
       for (var j = i; j < end; j++) {
-        batch.update(snapshot.docs[j].reference, {
-          'audienceVotes.$participantId': FieldValue.delete(),
-        });
+        batch.update(snapshot.docs[j].reference, deletions);
       }
       await batch.commit();
     }

@@ -5,4 +5,5 @@ class AppRoutes {
   static const String adminLogin = '/admin/login';
   static const String adminBallots = '/admin/ballots';
   static const String adminCreateEvent = '/admin/create';
+  static const String adminRounds = '/admin/rounds';
 }

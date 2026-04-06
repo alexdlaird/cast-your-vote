@@ -1,13 +1,12 @@
+import 'package:cast_your_vote/config/app_routes.dart';
+import 'package:cast_your_vote/data/models/models.dart';
+import 'package:cast_your_vote/presentation/features/admin/screens/rounds/rounds_screen.dart';
+import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
+import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cast_your_vote/config/app_routes.dart';
-import 'package:cast_your_vote/data/models/models.dart';
-import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
-import 'package:cast_your_vote/presentation/ui/utils/snack_bar_helper.dart';
-import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 
 class CreateEventScreen extends StatefulWidget {
   final String? editEventId;
@@ -17,6 +16,7 @@ class CreateEventScreen extends StatefulWidget {
   final List<JudgeModel>? previousJudges;
   final int? previousAudienceCount;
   final String? previousLogoUrl;
+  final List<RoundModel> previousRounds;
 
   const CreateEventScreen({
     super.key,
@@ -27,6 +27,7 @@ class CreateEventScreen extends StatefulWidget {
     this.previousJudges,
     this.previousAudienceCount,
     this.previousLogoUrl,
+    this.previousRounds = const [],
   });
 
   @override
@@ -181,8 +182,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     final mime = ext == 'png'
         ? 'image/png'
         : ext == 'webp'
-            ? 'image/webp'
-            : 'image/jpeg';
+        ? 'image/webp'
+        : 'image/jpeg';
 
     setState(() {
       _logoBytes = file.bytes;
@@ -191,17 +192,15 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     });
   }
 
-  void _createEvent() {
+  void _goToRounds() {
     if (!_formKey.currentState!.validate()) return;
 
-    // Validate judges
     final emptyJudgeIndices = <int>[];
     for (int i = 0; i < _judgeControllers.length; i++) {
       if (_judgeControllers[i].text.trim().isEmpty) {
         emptyJudgeIndices.add(i + 1);
       }
     }
-
     if (emptyJudgeIndices.isNotEmpty) {
       SnackBarHelper.show(
         context,
@@ -211,14 +210,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       return;
     }
 
-    // Validate participants
     final emptyParticipantIndices = <int>[];
     for (int i = 0; i < _participantControllers.length; i++) {
       if (_participantControllers[i].text.trim().isEmpty) {
         emptyParticipantIndices.add(i + 1);
       }
     }
-
     if (emptyParticipantIndices.isNotEmpty) {
       SnackBarHelper.show(
         context,
@@ -237,69 +234,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         ),
     ];
 
-    if (widget.editEventId != null) {
-      _submitUpdate(judges);
-    } else {
-      final participantNames =
-          _participantControllers.map((c) => c.text.trim()).toList();
-      if (widget.hasExistingEvent) {
-        _confirmCreateEvent(judges, participantNames);
-      } else {
-        _submitCreate(judges, participantNames);
-      }
-    }
-  }
-
-  void _confirmCreateEvent(List<JudgeModel> judges, List<String> participantNames) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Create New Event?'),
-        content: const Text(
-          "This will start a new event and generate new ballots. The previous event's data, including ballots, will be archived and no longer active.",
-        ),
-        actions: [
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    _submitCreate(judges, participantNames);
-                  },
-                  child: const Text('Continue'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _submitCreate(List<JudgeModel> judges, List<String> participantNames) {
-    context.read<AdminBloc>().add(
-          CreateEvent(
-            name: _eventNameController.text.trim(),
-            participantNames: participantNames,
-            audienceBallotCount: int.parse(_audienceCountController.text),
-            judges: judges,
-            previousLogoUrl: widget.previousLogoUrl,
-            logoBytes: _logoBytes,
-            logoMimeType: _logoMimeType,
-            logoFileName: _logoFileName,
-          ),
-        );
-  }
-
-  void _submitUpdate(List<JudgeModel> judges) {
     final participants = [
       for (int i = 0; i < _participantControllers.length; i++)
         ParticipantModel(
@@ -308,18 +242,61 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           order: i + 1,
         ),
     ];
-    context.read<AdminBloc>().add(
-          UpdateEvent(
-            eventId: widget.editEventId!,
-            name: _eventNameController.text.trim(),
-            participants: participants,
-            judges: judges,
-            audienceBallotCount: int.parse(_audienceCountController.text),
-            logoBytes: _logoBytes,
-            logoMimeType: _logoMimeType,
-            logoFileName: _logoFileName,
+
+    void navigate() {
+      context.go(
+        AppRoutes.adminRounds,
+        extra: RoundsScreenArgs(
+          editEventId: widget.editEventId,
+          name: _eventNameController.text.trim(),
+          participants: participants,
+          judges: judges,
+          audienceBallotCount: int.parse(_audienceCountController.text),
+          previousLogoUrl: widget.previousLogoUrl,
+          logoBytes: _logoBytes,
+          logoMimeType: _logoMimeType,
+          logoFileName: _logoFileName,
+          hasExistingEvent: widget.hasExistingEvent,
+          previousRounds: widget.previousRounds,
+        ),
+      );
+    }
+
+    if (widget.editEventId == null && widget.hasExistingEvent) {
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Create New Event?'),
+          content: const Text(
+            "This will start a new event and generate new ballots. The previous event's data, including ballots, will be archived and no longer active.",
           ),
-        );
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      navigate();
+                    },
+                    child: const Text('Continue'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    } else {
+      navigate();
+    }
   }
 
   Widget _buildJudgesList() {
@@ -402,8 +379,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       itemCount: _participantControllers.length,
       onReorder: (oldIndex, newIndex) {
         setState(() {
-          final adjustedIndex =
-              newIndex > oldIndex ? newIndex - 1 : newIndex;
+          final adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
           final controller = _participantControllers.removeAt(oldIndex);
           _participantControllers.insert(adjustedIndex, controller);
           final focusNode = _participantFocusNodes.removeAt(oldIndex);
@@ -489,151 +465,115 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         titleSpacing: 0,
         title: Text(widget.editEventId != null ? 'Edit Event' : 'Create Event'),
       ),
-      body: BlocListener<AdminBloc, AdminState>(
-        listenWhen: (previous, current) {
-          if (previous is! AdminLoaded || current is! AdminLoaded) return false;
-          final doneCreating =
-              previous.isCreatingEvent && !current.isCreatingEvent;
-          final doneUpdating =
-              previous.isUpdatingEvent && !current.isUpdatingEvent;
-          return (doneCreating || doneUpdating) && current.currentEvent != null;
-        },
-        listener: (context, state) {
-          if (widget.editEventId != null) {
-            context.go(AppRoutes.admin);
-          } else {
-            context.go(AppRoutes.adminBallots);
-          }
-        },
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _eventNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Event Name',
-                        hintText: "Come Out Singin'",
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Required';
-                        }
-                        return null;
-                      },
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _eventNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Event Name',
+                      hintText: "Come Out Singin'",
                     ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Required';
+                      }
+                      return null;
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: _pickLogo,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 56),
-                    ),
-                    icon: Icon(
-                      _logoBytes != null || widget.previousLogoUrl != null
-                          ? Icons.image
-                          : Icons.upload,
-                      size: 18,
-                    ),
-                    label: Text(
-                      _logoBytes != null
-                          ? _logoFileName ?? 'Logo selected'
-                          : widget.previousLogoUrl != null
-                              ? _filenameFromUrl(widget.previousLogoUrl!) ?? 'Logo selected'
-                              : 'Upload Logo',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _audienceCountController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Audience Ballots',
-                  hintText: '100',
                 ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Required';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Invalid number';
-                  }
-                  return null;
-                },
-                onFieldSubmitted: (_) {
-                  if (_judgeFocusNodes.isNotEmpty) {
-                    _judgeFocusNodes.first.requestFocus();
-                  }
-                },
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Judges',
-                    style: context.textTheme.titleMedium,
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _pickLogo,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 56),
                   ),
-                  IconButton(
-                    onPressed: _addJudgeField,
-                    icon: const Icon(Icons.add_circle),
-                    color: context.colorScheme.primary,
-                    tooltip: 'Add judge',
-                    focusNode: FocusNode(skipTraversal: true),
+                  icon: Icon(
+                    _logoBytes != null || widget.previousLogoUrl != null
+                        ? Icons.image
+                        : Icons.upload,
+                    size: 18,
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildJudgesList(),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Participants (in order of performance)',
-                    style: context.textTheme.titleMedium,
+                  label: Text(
+                    _logoBytes != null
+                        ? _logoFileName ?? 'Logo selected'
+                        : widget.previousLogoUrl != null
+                        ? _filenameFromUrl(widget.previousLogoUrl!) ??
+                              'Logo selected'
+                        : 'Upload Logo',
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  IconButton(
-                    onPressed: _addParticipantField,
-                    icon: const Icon(Icons.add_circle),
-                    color: context.colorScheme.primary,
-                    tooltip: 'Add participant',
-                    focusNode: FocusNode(skipTraversal: true),
-                  ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            TextFormField(
+              controller: _audienceCountController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Audience Ballots',
+                hintText: '100',
               ),
-              const SizedBox(height: 8),
-              _buildParticipantsList(),
-              const SizedBox(height: 32),
-              BlocBuilder<AdminBloc, AdminState>(
-                builder: (context, state) {
-                  final isLoading = state is AdminLoaded &&
-                      (state.isCreatingEvent || state.isUpdatingEvent);
-                  return ElevatedButton(
-                    onPressed: isLoading ? null : _createEvent,
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(widget.editEventId != null
-                            ? 'Update Event'
-                            : 'Create Event & Generate Ballots'),
-                  );
-                },
-              ),
-            ],
-          ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Required';
+                }
+                if (int.tryParse(value) == null) {
+                  return 'Invalid number';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) {
+                if (_judgeFocusNodes.isNotEmpty) {
+                  _judgeFocusNodes.first.requestFocus();
+                }
+              },
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Judges', style: context.textTheme.titleMedium),
+                IconButton(
+                  onPressed: _addJudgeField,
+                  icon: const Icon(Icons.add_circle),
+                  color: context.colorScheme.primary,
+                  tooltip: 'Add judge',
+                  focusNode: FocusNode(skipTraversal: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildJudgesList(),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Participants (in order of performance)',
+                  style: context.textTheme.titleMedium,
+                ),
+                IconButton(
+                  onPressed: _addParticipantField,
+                  icon: const Icon(Icons.add_circle),
+                  color: context.colorScheme.primary,
+                  tooltip: 'Add participant',
+                  focusNode: FocusNode(skipTraversal: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildParticipantsList(),
+            const SizedBox(height: 32),
+            ElevatedButton(onPressed: _goToRounds, child: const Text('Next')),
+          ],
         ),
       ),
     );

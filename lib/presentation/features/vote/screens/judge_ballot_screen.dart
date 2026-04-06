@@ -40,6 +40,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   int _currentParticipantIndex = 0;
   final PageController _pageController = PageController();
   String? _openCommentCategory;
+  int _lastRoundIndex = 0;
 
   @override
   void dispose() {
@@ -80,9 +81,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   }
 
   bool _isVoteComplete(JudgeVote vote) {
-    return vote.singing != 0 &&
-        vote.performance != 0 &&
-        vote.songFit != 0;
+    return vote.singing != 0 && vote.performance != 0 && vote.songFit != 0;
   }
 
   bool _isVotePartial(JudgeVote vote) {
@@ -92,13 +91,62 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     return filledCount > 0 && filledCount < 3;
   }
 
+  void _onRoundChanged(BallotLoaded state) {
+    if (state.ballot.currentRoundIndex != _lastRoundIndex) {
+      _lastRoundIndex = state.ballot.currentRoundIndex;
+      setState(() {
+        _currentParticipantIndex = 0;
+        _openCommentCategory = null;
+      });
+      _pageController.jumpToPage(0);
+    }
+  }
+
+  void _confirmAdvanceRound(BuildContext context, BallotLoaded state) {
+    final roundNum = state.ballot.currentRoundIndex + 1;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Lock This Round?'),
+        content: Text(
+          "You won't be able to change your Round $roundNum votes after this. Continue?",
+        ),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    context.read<BallotBloc>().add(const AdvanceRound());
+                  },
+                  child: const Text('Continue'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<BallotBloc, BallotState>(
-      listenWhen: (_, current) => current is BallotError,
+      listenWhen: (_, current) =>
+          current is BallotError || current is BallotLoaded,
       listener: (context, state) {
         if (state is BallotError) {
           SnackBarHelper.show(context, state.message, type: SnackType.error);
+        } else if (state is BallotLoaded) {
+          _onRoundChanged(state);
         }
       },
       builder: (context, state) {
@@ -184,36 +232,52 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   Widget _buildBallotView(BuildContext context, BallotLoaded state) {
     final participants = List<ParticipantModel>.from(state.event.participants)
       ..sort((a, b) => a.order.compareTo(b.order));
-    final votes = state.ballot.judgeVotes;
+    final round = state.currentRound;
+    final votes = state.ballot.judgeVotesForRound(round.id);
     final canSubmit = _canSubmit(votes, participants.length);
-    final isLastParticipant =
-        _currentParticipantIndex == participants.length - 1;
+    final isLastParticipant = _currentParticipantIndex == participants.length - 1;
     final judgeName = state.ballot.judgeName;
+    final isMultiRound = state.event.isMultiRound;
 
     return AppScaffold(
       title: 'Judge Ballot for "${state.event.name}"',
-      actions: judgeName != null
-          ? [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: context.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  judgeName,
-                  style: context.textTheme.labelMedium?.copyWith(
-                    color: context.colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+      actions: [
+        if (isMultiRound)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: context.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              'Round ${round.order} of ${state.totalRounds}',
+              style: context.textTheme.labelMedium?.copyWith(
+                color: context.colorScheme.onSecondaryContainer,
+                fontWeight: FontWeight.w600,
               ),
-            ]
-          : null,
+            ),
+          ),
+        if (isMultiRound && judgeName != null) const SizedBox(width: 8),
+        if (judgeName != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: context.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              judgeName,
+              style: context.textTheme.labelMedium?.copyWith(
+                color: context.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
       body: Column(
         children: [
           _buildProgressIndicator(context, participants.length, votes),
-          _buildParticipantPages(participants, votes),
+          _buildParticipantPages(participants, votes, round),
           _buildNavigationControls(
             context,
             state,
@@ -262,6 +326,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
   Widget _buildParticipantPages(
     List<ParticipantModel> participants,
     Map<String, JudgeVote> votes,
+    RoundModel round,
   ) {
     return Expanded(
       child: PageView.builder(
@@ -276,17 +341,15 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
         itemBuilder: (context, index) {
           final participant = participants[index];
           final vote = votes[participant.id] ??
-              const JudgeVote(
-                singing: 0,
-                performance: 0,
-                songFit: 0,
-              );
+              const JudgeVote(singing: 0, performance: 0, songFit: 0);
+          final entryTitle = round.entryForParticipant(participant.id)?.title;
           return _buildParticipantPage(
             context,
             participant,
             vote,
             index,
             participants.length,
+            entryTitle: entryTitle,
           );
         },
       ),
@@ -301,33 +364,48 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     bool canSubmit,
     bool isLastParticipant,
   ) {
+    final isMultiRound = state.event.isMultiRound;
+    final isLastRound = state.isOnLastRound;
+    final isBusy = state.isSubmitting || state.isAdvancingRound;
+
+    Widget primaryButton;
+    if (isBusy) {
+      primaryButton = const ElevatedButton(
+        onPressed: null,
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    } else if (isLastParticipant && isMultiRound && !isLastRound) {
+      // Last participant of a non-final round → "Next Round"
+      primaryButton = ElevatedButton(
+        onPressed: canSubmit ? () => _confirmAdvanceRound(context, state) : null,
+        child: Text(canSubmit ? 'Next Round' : 'Score All Participants'),
+      );
+    } else if (isLastParticipant) {
+      // Last participant of the final round (or single-round) → "Submit"
+      primaryButton = ElevatedButton(
+        onPressed: canSubmit
+            ? () => context.read<BallotBloc>().add(const SubmitBallot())
+            : null,
+        child: Text(canSubmit ? 'Submit All Votes' : 'Score All Participants'),
+      );
+    } else {
+      primaryButton = ElevatedButton(
+        onPressed: () => _onVoteAndNext(context, participants, votes),
+        child: const Text('Next'),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           _buildNavigationDots(context, participants, votes),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: isLastParticipant
-                ? (canSubmit && !state.isSubmitting
-                    ? () =>
-                        context.read<BallotBloc>().add(const SubmitBallot())
-                    : null)
-                : () => _onVoteAndNext(context, participants, votes),
-            child: state.isSubmitting
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    isLastParticipant
-                        ? (canSubmit
-                            ? 'Submit All Votes'
-                            : 'Score All Participants')
-                        : 'Next',
-                  ),
-          ),
+          primaryButton,
           if (_currentParticipantIndex > 0) ...[
             const SizedBox(height: 8),
             OutlinedButton(
@@ -389,8 +467,9 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     ParticipantModel participant,
     JudgeVote vote,
     int index,
-    int total,
-  ) {
+    int total, {
+    String? entryTitle,
+  }) {
     if (participant.droppedOut) {
       return Column(
         children: [
@@ -433,10 +512,22 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-          child: Text(
-            participant.displayName,
-            style: context.textTheme.titleLarge,
-            textAlign: TextAlign.center,
+          child: Column(
+            children: [
+              Text(
+                participant.displayName,
+                style: context.textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              if (entryTitle != null && entryTitle.isNotEmpty)
+                Text(
+                  entryTitle,
+                  style: context.textTheme.bodyMedium?.copyWith(
+                    color: context.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+            ],
           ),
         ),
         Expanded(
@@ -566,9 +657,13 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     String participantId,
     JudgeVote vote,
   ) {
-    context.read<BallotBloc>().add(
-          UpdateJudgeVote(participantId: participantId, vote: vote),
-        );
+    final state = context.read<BallotBloc>().state;
+    if (state is! BallotLoaded) return;
+    context.read<BallotBloc>().add(UpdateJudgeVote(
+          roundId: state.currentRound.id,
+          participantId: participantId,
+          vote: vote,
+        ));
   }
 }
 

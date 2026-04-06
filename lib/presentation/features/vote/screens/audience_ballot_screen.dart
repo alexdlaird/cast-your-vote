@@ -1,5 +1,3 @@
-// Copyright (c) 2024 Theatre 121. MIT License.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:theatre_121/data/models/models.dart';
@@ -38,7 +36,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   List<ParticipantModel> _unranked = [];
   List<ParticipantModel> _ranked = [];
   bool _initialized = false;
-  bool _isDragging = false;
 
   void _initFromState(BallotLoaded state) {
     final active = state.event.participants.where((p) => !p.droppedOut).toList()
@@ -56,6 +53,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     });
   }
 
+  /// Inserts [participant] before the ranked card at [dropIndex].
+  /// Adjusts for the case where the item was already in [_ranked] —
+  /// removing it shifts subsequent indices by 1.
   void _dropAt(
     BuildContext context,
     ParticipantModel participant,
@@ -63,7 +63,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
   ) {
     final fromRankedIndex = _ranked.indexOf(participant);
     final wasInRanked = fromRankedIndex != -1;
-
     setState(() {
       _ranked.remove(participant);
       _unranked.remove(participant);
@@ -72,7 +71,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
           : dropIndex.clamp(0, _ranked.length);
       _ranked.insert(adjusted, participant);
     });
-
     _syncVotes(context);
   }
 
@@ -397,7 +395,6 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
       );
     }
 
-    // Scrollable ranked area with drop zones, dropped-out pinned to bottom.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -407,11 +404,9 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildDropZone(context, 0),
-                for (var i = 0; i < _ranked.length; i++) ...[
-                  _buildDraggableCard(context, _ranked[i], isRanked: true),
-                  _buildDropZone(context, i + 1),
-                ],
+                for (var i = 0; i < _ranked.length; i++)
+                  _buildRankedSlot(context, i),
+                _buildTailDropZone(context),
               ],
             ),
           ),
@@ -422,29 +417,50 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     );
   }
 
-  Widget _buildDropZone(BuildContext context, int index) {
+  /// A [DragTarget] wrapping a single ranked card. When any other card hovers
+  /// over it, a thin insertion indicator appears above it, signalling that the
+  /// dragged item will be placed before this one.
+  Widget _buildRankedSlot(BuildContext context, int index) {
+    final participant = _ranked[index];
     return DragTarget<ParticipantModel>(
-      onWillAcceptWithDetails: (d) => !d.data.droppedOut,
+      key: ValueKey('slot_${participant.id}'),
+      onWillAcceptWithDetails: (d) =>
+          !d.data.droppedOut && d.data.id != participant.id,
       onAcceptWithDetails: (d) => _dropAt(context, d.data, index),
       builder: (ctx, candidates, _) {
         final isHovered = candidates.isNotEmpty;
-        if (!_isDragging && !isHovered) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isHovered) _buildInsertionIndicator(ctx),
+            _buildDraggableCard(ctx, participant, isRanked: true),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Drop zone below all ranked cards — appends the dragged item at the end.
+  Widget _buildTailDropZone(BuildContext context) {
+    return DragTarget<ParticipantModel>(
+      onWillAcceptWithDetails: (d) => !d.data.droppedOut,
+      onAcceptWithDetails: (d) => _dropAt(context, d.data, _ranked.length),
+      builder: (ctx, candidates, _) {
+        final isHovered = candidates.isNotEmpty;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 100),
-          height: isHovered ? 52 : 40,
+          height: isHovered ? 52 : 20,
           margin: const EdgeInsets.only(bottom: 4),
-          decoration: BoxDecoration(
-            color: isHovered
-                ? ctx.colorScheme.primary.withValues(alpha: 0.12)
-                : ctx.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isHovered
-                  ? ctx.colorScheme.primary
-                  : ctx.colorScheme.outlineVariant.withValues(alpha: 0.4),
-              width: isHovered ? 2 : 1,
-            ),
-          ),
+          decoration: isHovered
+              ? BoxDecoration(
+                  color: ctx.colorScheme.primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: ctx.colorScheme.primary,
+                    width: 2,
+                  ),
+                )
+              : null,
           child: isHovered
               ? Center(
                   child: Icon(
@@ -459,16 +475,25 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
     );
   }
 
+  Widget _buildInsertionIndicator(BuildContext context) {
+    return Container(
+      height: 3,
+      margin: const EdgeInsets.only(bottom: 3),
+      decoration: BoxDecoration(
+        color: context.colorScheme.primary,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+
   Widget _buildDraggableCard(
     BuildContext context,
     ParticipantModel participant, {
     required bool isRanked,
   }) {
     return Draggable<ParticipantModel>(
+      key: ValueKey(participant.id),
       data: participant,
-      onDragStarted: () => setState(() => _isDragging = true),
-      onDragEnd: (_) => setState(() => _isDragging = false),
-      onDraggableCanceled: (_, __) => setState(() => _isDragging = false),
       feedback: _buildDragFeedback(context, participant),
       childWhenDragging: _buildDragPlaceholder(context, participant),
       child: _buildCard(context, participant, isRanked: isRanked),

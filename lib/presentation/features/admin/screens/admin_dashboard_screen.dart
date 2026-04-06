@@ -166,7 +166,7 @@ class AdminDashboardView extends StatelessWidget {
           ],
           _buildBallotStatsCard(context, state),
           const SizedBox(height: 16),
-          _buildDonationWinnersCard(context, event, isEditable: event.isVotingOpen),
+          _buildDonationWinnersCard(context, event, isEditable: event.isVotingOpen && !state.isBusy),
           const SizedBox(height: 16),
           _buildActionsCard(context, state),
         ],
@@ -259,7 +259,7 @@ class AdminDashboardView extends StatelessWidget {
                     ..sort((a, b) => a.order.compareTo(b.order)))
                   .map<Widget>((p) => _ParticipantChip(
                         participant: p,
-                        isEditable: event.isVotingOpen,
+                        isEditable: event.isVotingOpen && !state.isBusy,
                         onDonationTap: () => context.read<AdminBloc>().add(
                               UpdateParticipantDonation(
                                 participantId: p.id,
@@ -575,7 +575,7 @@ class AdminDashboardView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             OutlinedButton.icon(
-              onPressed: () => context.go(AppRoutes.adminBallots),
+              onPressed: state.isBusy ? null : () => context.go(AppRoutes.adminBallots),
               icon: const Icon(Icons.qr_code),
               label: const Text('View Ballot Codes'),
             ),
@@ -606,14 +606,14 @@ class AdminDashboardView extends StatelessWidget {
             if (isVotingOpen) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => context.go('${AppRoutes.adminCreateEvent}?edit=true'),
+                onPressed: state.isBusy ? null : () => context.go('${AppRoutes.adminCreateEvent}?edit=true'),
                 icon: const Icon(Icons.edit),
                 label: const Text('Edit Event'),
               ),
             ],
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => _navigateToCreateEvent(context),
+              onPressed: state.isBusy ? null : () => _navigateToCreateEvent(context),
               icon: const Icon(Icons.add),
               label: const Text('Create New Event'),
             ),

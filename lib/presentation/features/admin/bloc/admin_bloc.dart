@@ -180,6 +180,8 @@ class AdminLoaded extends AdminState {
       closingProgress != ClosingProgress.exportComplete &&
       closingProgress != ClosingProgress.refetchComplete;
 
+  bool get isBusy => isCreatingEvent || isUpdatingEvent || isClosingVoting;
+
   int get audienceBallotCount => ballots.where((b) => b.isAudience).length;
   int get judgeBallotCount => ballots.where((b) => b.isJudge).length;
   int get submittedAudienceCount =>
@@ -703,6 +705,13 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         currentEvent.id,
         updatedParticipants,
       );
+
+      if (!event.droppedOut) {
+        await _ballotRepository.clearParticipantVotes(
+          currentEvent.id,
+          event.participantId,
+        );
+      }
     } catch (e, stackTrace) {
       _log.severe('Failed to update participant dropout', e, stackTrace);
       emit(AdminError(e.toString()));

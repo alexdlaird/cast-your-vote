@@ -56,7 +56,7 @@ class ComeOutSinginApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Theatre 121',
+      title: 'Cast Your Vote!',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

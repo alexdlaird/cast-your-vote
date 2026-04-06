@@ -42,7 +42,6 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
     }
   }
 
-  @override
   Future<String?> _fetchLogoUrl() async {
     try {
       final event = await _eventRepository.getCurrentEvent();
@@ -52,6 +51,7 @@ class _BallotEntryScreenState extends State<BallotEntryScreen> {
     }
   }
 
+  @override
   void dispose() {
     _codeController.dispose();
     super.dispose();

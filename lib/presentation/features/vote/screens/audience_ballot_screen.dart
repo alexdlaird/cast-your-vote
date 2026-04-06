@@ -314,8 +314,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
       onAcceptWithDetails: (details) => _moveToUnranked(context, details.data),
       builder: (context, candidateData, _) {
         final isHovered = candidateData.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+        return DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: isHovered
@@ -352,8 +351,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
         onAcceptWithDetails: (d) => _dropAt(context, d.data, 0),
         builder: (ctx, candidates, _) {
           final isHovered = candidates.isNotEmpty;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+          return DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: isHovered

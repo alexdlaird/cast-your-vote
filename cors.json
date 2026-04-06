@@ -1,0 +1,10 @@
+[
+  {
+    "origin": [
+      "https://cast-your-vote-d3898.web.app",
+      "https://cast-your-vote-d3898.firebaseapp.com"
+    ],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

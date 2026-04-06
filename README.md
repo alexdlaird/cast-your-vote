@@ -20,11 +20,10 @@ firebase emulators:start
 flutter run -d chrome
 ```
 
-The app automatically connects to the local Firestore emulator in debug mode.
+The app automatically connects to the local emulators in debug mode.
 
-- **Emulator UI:** http://localhost:4000 (view/edit Firestore data)
-- **Firestore:** localhost:8080
-
+- **Emulator UI:** http://localhost:4000 (view/edit Firestore & Storage data)
+- 
 ## Deployment
 
 The app auto-deploys to Firebase Hosting on commits to `main`.

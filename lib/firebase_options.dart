@@ -53,12 +53,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyA6p5nYUOnVNw9IfNjJeFbZRF5aYMSDZXY',
-    appId: '1:381810584800:web:d7a72ebff322015f633485',
-    messagingSenderId: '381810584800',
-    projectId: 'theatre-121',
-    authDomain: 'theatre-121.firebaseapp.com',
-    storageBucket: 'theatre-121.firebasestorage.app',
-    measurementId: 'G-XM6K1B9JEK',
+    apiKey: 'AIzaSyB7WRb7MAooh3z0dHVX6PWYFxJM05Kawmg',
+    appId: '1:525226026302:web:6c6183ea44a20b024db86f',
+    messagingSenderId: '525226026302',
+    projectId: 'cast-your-vote-d3898',
+    authDomain: 'cast-your-vote-d3898.firebaseapp.com',
+    storageBucket: 'cast-your-vote-d3898.firebasestorage.app',
+    measurementId: 'G-78F2RV07V4',
   );
+
 }

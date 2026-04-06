@@ -40,7 +40,7 @@ document, with an `emails` array, and populate with allowed addresses.
 When running on the local emulator, provision the whitelist with (update with your email):
 
 ```sh
-curl -X PATCH "http://localhost:8080/v1/projects/theatre-121/databases/(default)/documents/config/admins" \
+curl -X PATCH "http://localhost:8080/v1/projects/cast-your-vote-d3898/databases/(default)/documents/config/admins" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer owner" \
   -d '{"fields": {"emails": {"arrayValue": {"values": [{"stringValue": "your-email@gmail.com"}]}}}}'

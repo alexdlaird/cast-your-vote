@@ -8,6 +8,22 @@ import 'package:cast_your_vote/domain/services/google_sheets_service.dart';
 class GoogleSheetsServiceImpl implements GoogleSheetsService {
   final _authService = GoogleAuthService();
 
+  // ── Scoring constants ────────────────────────────────────────────────────────
+  static const double _donationBonus = 0.5;
+  static const double _highestDonationBonus = 0.25;
+  static const double _mostDonationsBonus = 0.25;
+  static const int _scoreInversionBase = 6;
+  static const int _scoreMultiplier = 3;
+  static const int _maxJudgeWeight = 5;
+
+  // ── Variables sheet cell references (B2..B7) ────────────────────────────────
+  static const _vDonationBonus         = r'Variables!$B$2';
+  static const _vHighestDonationBonus  = r'Variables!$B$3';
+  static const _vMostDonationsBonus    = r'Variables!$B$4';
+  static const _vScoreInversionBase    = r'Variables!$B$5';
+  static const _vScoreMultiplier       = r'Variables!$B$6';
+  static const _vMaxJudgeWeight        = r'Variables!$B$7';
+
   @override
   Future<String> createResultsSpreadsheet({
     required EventModel event,
@@ -23,12 +39,40 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
     if (existingSpreadsheetId != null) {
       spreadsheetId = existingSpreadsheetId;
+
+      // Fetch existing sheets so we can add missing ones and only clear present ones.
+      final existing = await sheetsApi.spreadsheets.get(spreadsheetId);
+      final existingTitles = {
+        for (final s in existing.sheets ?? <sheets.Sheet>[])
+          if (s.properties?.title != null) s.properties!.title!,
+      };
+
+      final needed = [
+        'Audience Votes',
+        if (hasJudges) 'Judge Votes',
+        'Summary',
+        'Variables',
+      ];
+      final addRequests = [
+        for (final title in needed)
+          if (!existingTitles.contains(title))
+            sheets.Request(
+              addSheet: sheets.AddSheetRequest(
+                properties: sheets.SheetProperties(title: title),
+              ),
+            ),
+      ];
+      if (addRequests.isNotEmpty) {
+        await sheetsApi.spreadsheets.batchUpdate(
+          sheets.BatchUpdateSpreadsheetRequest(requests: addRequests),
+          spreadsheetId,
+        );
+      }
+
       await sheetsApi.spreadsheets.values.batchClear(
         sheets.BatchClearValuesRequest(
           ranges: [
-            'Audience Votes!A1:ZZ',
-            if (hasJudges) 'Judge Votes!A1:ZZ',
-            'Summary!A1:ZZ',
+            for (final title in needed) '$title!A1:ZZ',
           ],
         ),
         spreadsheetId,
@@ -55,6 +99,9 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
             sheets.Sheet(
               properties: sheets.SheetProperties(title: 'Summary'),
             ),
+            sheets.Sheet(
+              properties: sheets.SheetProperties(title: 'Variables'),
+            ),
           ],
         ),
       );
@@ -72,8 +119,6 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     final isMultiRound = rounds.length > 1;
 
     // ── Audience Votes sheet ──────────────────────────────────────────────────
-    // Single round:  Ballot Code | P1 | P2 | …
-    // Multi-round:   Ballot Code | P1 R1 | P2 R1 | … | P1 R2 | P2 R2 | …
     final audienceRows = <List<Object?>>[];
     if (isMultiRound) {
       final header = <Object?>['Ballot Code'];
@@ -110,20 +155,18 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
 
     // ── Judge Votes sheet ─────────────────────────────────────────────────────
-    // Raw scores (1–5) are written as data so admins can audit them as
-    // necessary. Adjusted scores, weight ratio, and total are spreadsheet
-    // formulas so they recalculate automatically when overrides are made.
+    // Adj score  = ($_scoreInversionBase - raw) * $_scoreMultiplier
+    // Weight ratio = weight / $_maxJudgeWeight
+    // Total = (AdjS + AdjP + AdjF) * WeightRatio
     //
-    // Single round column layout:
-    //   A: Judge | B: Ballot Code | C: Participant
-    //   D: Singing (1-5) | E: Performance (1-5) | F: Song Fit (1-5)
-    //   G: Weight (1-5)
-    //   H: Adj Singing =(6-D)*3 | I: Adj Performance | J: Adj Song Fit
-    //   K: Weight Ratio =G/5 | L: Total =(H+I+J)*K
+    // Single round columns:
+    //   A: Judge | B: Ballot Code | C: Performer
+    //   D: Singing | E: Performance | F: Song Fit | G: Weight
+    //   H: Adj Singing | I: Adj Performance | J: Adj Song Fit
+    //   K: Weight Ratio | L: Total
     //   M: Singing Comments | N: Performance Comments | O: Song Fit Comments
     //
-    // Multi-round inserts a Round column at B, shifting scores to E–H,
-    // formulas to I–M, comments to N–P.
+    // Multi-round inserts Round at B, shifting scores to E–H, formulas to I–M.
     final judgeRows = <List<Object?>>[];
     if (isMultiRound) {
       judgeRows.add([
@@ -160,10 +203,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
                 vote.performance,
                 vote.songFit,
                 ballot.judgeWeight,
-                '=(6-E$r)*3',
-                '=(6-F$r)*3',
-                '=(6-G$r)*3',
-                '=H$r/5',
+                '=($_vScoreInversionBase-E$r)*$_vScoreMultiplier',
+                '=($_vScoreInversionBase-F$r)*$_vScoreMultiplier',
+                '=($_vScoreInversionBase-G$r)*$_vScoreMultiplier',
+                '=H$r/$_vMaxJudgeWeight',
                 '=(I$r+J$r+K$r)*L$r',
                 vote.singingComments,
                 vote.performanceComments,
@@ -187,10 +230,10 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
               vote.performance,
               vote.songFit,
               ballot.judgeWeight,
-              '=(6-D$r)*3',
-              '=(6-E$r)*3',
-              '=(6-F$r)*3',
-              '=G$r/5',
+              '=($_vScoreInversionBase-D$r)*$_vScoreMultiplier',
+              '=($_vScoreInversionBase-E$r)*$_vScoreMultiplier',
+              '=($_vScoreInversionBase-F$r)*$_vScoreMultiplier',
+              '=G$r/$_vMaxJudgeWeight',
               '=(H$r+I$r+J$r)*K$r',
               vote.singingComments,
               vote.performanceComments,
@@ -202,10 +245,7 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
     }
 
     // ── Summary sheet ─────────────────────────────────────────────────────────
-    // With judges, single round:   Performer | Audience Total | Judge Total | … | Combined
-    // With judges, multi-round:    Performer | Aud R1..RN | Audience Total | Jdg R1..RN | Judge Total | … | Combined
-    // Without judges, single round: Performer | Audience Total | … | Combined
-    // Without judges, multi-round:  Performer | Aud R1..RN | Audience Total | … | Combined
+    // Donation columns hold 0/1 flags; Combined multiplies by Variables weights.
     final summaryRows = <List<Object?>>[];
     if (isMultiRound) {
       final header = <Object?>['Performer'];
@@ -222,13 +262,6 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       header.addAll(['Donation', 'Highest Donation', 'Most Donations', 'Combined']);
       summaryRows.add(header);
 
-      // Column layout (1-indexed), with judges:
-      // 1: Participant
-      // 2..(1+n): Aud R1..RN
-      // (2+n): Audience Total
-      // (3+n)..(2+2n): Jdg R1..RN  [omitted without judges]
-      // (3+2n): Judge Total         [omitted without judges]
-      // next: Donation, Highest Donation, Most Donations, Combined
       final n = rounds.length;
       final audTotalCol = _columnLetter(2 + n);
       final jdgTotalCol = hasJudges ? _columnLetter(3 + 2 * n) : null;
@@ -239,10 +272,6 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
       for (var i = 0; i < participants.length; i++) {
         final p = participants[i];
         final row = i + 2;
-        final donation = p.hasDonation ? 1 : 0;
-        final highestDonation = event.largestDonationWinnerId == p.id ? 1 : 0;
-        final mostDonations = event.mostDonationsWinnerId == p.id ? 1 : 0;
-
         final rowData = <Object?>[p.displayName];
 
         for (var ri = 0; ri < rounds.length; ri++) {
@@ -265,10 +294,17 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
           rowData.add('=SUM($jdgStartCol$row:$jdgEndCol$row)');
         }
 
-        rowData.addAll([donation, highestDonation, mostDonations]);
+        rowData.addAll([
+          p.hasDonation ? 1 : 0,
+          event.largestDonationWinnerId == p.id ? 1 : 0,
+          event.mostDonationsWinnerId == p.id ? 1 : 0,
+        ]);
         final judgePart = hasJudges ? '+$jdgTotalCol$row' : '';
         rowData.add(
-          '=$audTotalCol$row${judgePart}+$donationCol$row+$highDonCol$row+$mostDonCol$row',
+          '=$audTotalCol$row$judgePart'
+          '+$donationCol$row*$_vDonationBonus'
+          '+$highDonCol$row*$_vHighestDonationBonus'
+          '+$mostDonCol$row*$_vMostDonationsBonus',
         );
         summaryRows.add(rowData);
       }
@@ -286,26 +322,36 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
         final p = participants[i];
         final col = _columnLetter(i + 2);
         final row = i + 2;
-        final donation = p.hasDonation ? 1 : 0;
-        final highestDonation = event.largestDonationWinnerId == p.id ? 1 : 0;
-        final mostDonations = event.mostDonationsWinnerId == p.id ? 1 : 0;
-        // Without judges: B=Audience, C=Donation, D=Highest, E=Most, F=Combined
-        // With judges:    B=Audience, C=Judge,    D=Donation, E=Highest, F=Most, G=Combined
-        final combinedFormula = hasJudges
-            ? '=B$row+C$row+D$row+E$row+F$row'
-            : '=B$row+C$row+D$row+E$row';
+        // Without judges: B=Audience, C=Donation, D=HighestDon, E=MostDon
+        // With judges:    B=Audience, C=Judge,    D=Donation,   E=HighestDon, F=MostDon
+        final (donCol, highCol, mostCol) =
+            hasJudges ? ('D', 'E', 'F') : ('C', 'D', 'E');
+        final audJudgePart = hasJudges ? '=B$row+C$row' : '=B$row';
         summaryRows.add([
           p.displayName,
           "=SUM('Audience Votes'!${col}2:$col)",
           if (hasJudges)
             "=SUMIF('Judge Votes'!C2:C,\"${p.displayName}\",'Judge Votes'!L2:L)",
-          donation,
-          highestDonation,
-          mostDonations,
-          combinedFormula,
+          p.hasDonation ? 1 : 0,
+          event.largestDonationWinnerId == p.id ? 1 : 0,
+          event.mostDonationsWinnerId == p.id ? 1 : 0,
+          '$audJudgePart+$donCol$row*$_vDonationBonus'
+          '+$highCol$row*$_vHighestDonationBonus'
+          '+$mostCol$row*$_vMostDonationsBonus',
         ]);
       }
     }
+
+    // ── Variables sheet ───────────────────────────────────────────────────────
+    final variablesRows = [
+      ['Variable', 'Value', 'Description'],
+      ['Donation Bonus',          _donationBonus,        'Points added when a performer has any donation'],
+      ['Highest Donation Bonus',  _highestDonationBonus, 'Points added for the performer with the largest single donation'],
+      ['Most Donations Bonus',    _mostDonationsBonus,   'Points added for the performer with the most individual donations'],
+      ['Score Inversion Base',    _scoreInversionBase,   'Judge scoring: (Base − Raw Score) converts 1=best into highest value'],
+      ['Score Multiplier',        _scoreMultiplier,      'Multiplier applied to each inverted judge score category'],
+      ['Max Judge Weight',        _maxJudgeWeight,       'Maximum possible judge weight; used to normalise the weight ratio'],
+    ];
 
     await sheetsApi.spreadsheets.values.batchUpdate(
       sheets.BatchUpdateValuesRequest(
@@ -324,8 +370,66 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
             range: 'Summary!A1',
             values: summaryRows,
           ),
+          sheets.ValueRange(
+            range: 'Variables!A1',
+            values: variablesRows,
+          ),
         ],
       ),
+      spreadsheetId,
+    );
+
+    // ── Bold formatting ───────────────────────────────────────────────────────
+    final spreadsheetInfo = await sheetsApi.spreadsheets.get(spreadsheetId);
+    final sheetIdsByTitle = {
+      for (final s in spreadsheetInfo.sheets ?? <sheets.Sheet>[])
+        if (s.properties?.title != null)
+          s.properties!.title!: s.properties!.sheetId ?? 0,
+    };
+
+    final boldRequests = <sheets.Request>[];
+    for (final title in [
+      'Audience Votes',
+      if (hasJudges) 'Judge Votes',
+      'Summary',
+      'Variables',
+    ]) {
+      final sheetId = sheetIdsByTitle[title];
+      if (sheetId == null) continue;
+      final boldCell = sheets.CellData(
+        userEnteredFormat: sheets.CellFormat(
+          textFormat: sheets.TextFormat(bold: true),
+        ),
+      );
+      const boldField = 'userEnteredFormat.textFormat.bold';
+      // Row 1 (header)
+      boldRequests.add(sheets.Request(
+        repeatCell: sheets.RepeatCellRequest(
+          range: sheets.GridRange(
+            sheetId: sheetId,
+            startRowIndex: 0,
+            endRowIndex: 1,
+          ),
+          cell: boldCell,
+          fields: boldField,
+        ),
+      ));
+      // Column A
+      boldRequests.add(sheets.Request(
+        repeatCell: sheets.RepeatCellRequest(
+          range: sheets.GridRange(
+            sheetId: sheetId,
+            startColumnIndex: 0,
+            endColumnIndex: 1,
+          ),
+          cell: boldCell,
+          fields: boldField,
+        ),
+      ));
+    }
+
+    await sheetsApi.spreadsheets.batchUpdate(
+      sheets.BatchUpdateSpreadsheetRequest(requests: boldRequests),
       spreadsheetId,
     );
 
@@ -381,7 +485,6 @@ class GoogleSheetsServiceImpl implements GoogleSheetsService {
 
     if (combinedIdx == -1) return const FetchedRankings(rankedNames: []);
 
-    // Use scores only for sorting and tie detection; discard afterwards.
     final scored = <({String name, double score})>[];
     for (var i = 1; i < values.length; i++) {
       final row = values[i];

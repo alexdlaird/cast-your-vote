@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'package:flutter/material.dart';
 import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 

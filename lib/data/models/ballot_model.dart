@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Cast Your Vote. MIT License.
+// Copyright (c) 2026 Alex Laird. MIT License.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';

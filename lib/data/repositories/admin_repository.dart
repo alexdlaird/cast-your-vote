@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminRepository {

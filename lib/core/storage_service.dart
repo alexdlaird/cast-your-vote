@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Cast Your Vote. MIT License.
+// Copyright (c) 2026 Alex Laird. MIT License.
 
 import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';

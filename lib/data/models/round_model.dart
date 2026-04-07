@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Cast Your Vote. MIT License.
+// Copyright (c) 2026 Alex Laird. MIT License.
 
 import 'package:equatable/equatable.dart';
 import 'package:cast_your_vote/data/models/entry_model.dart';

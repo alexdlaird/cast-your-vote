@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Cast Your Vote. MIT License.
+// Copyright (c) 2026 Alex Laird. MIT License.
 
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:cast_your_vote/core/google_auth_service.dart';

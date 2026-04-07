@@ -1,4 +1,4 @@
-// Copyright (c) 2024 Cast Your Vote. MIT License.
+// Copyright (c) 2026 Alex Laird. MIT License.
 
 import 'package:cast_your_vote/config/app_routes.dart';
 import 'package:cast_your_vote/data/models/models.dart';

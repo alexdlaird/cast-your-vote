@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 class AppRoutes {
   static const String home = '/';
   static const String vote = '/vote';

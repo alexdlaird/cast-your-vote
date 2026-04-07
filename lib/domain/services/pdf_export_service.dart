@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'dart:typed_data';
 
 import 'package:cast_your_vote/data/models/models.dart';

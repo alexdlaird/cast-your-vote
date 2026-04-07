@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cast_your_vote/domain/repositories/ballot_repository.dart';

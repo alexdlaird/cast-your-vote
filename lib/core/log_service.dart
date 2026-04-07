@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:cast_your_vote/core/log_formatter.dart';

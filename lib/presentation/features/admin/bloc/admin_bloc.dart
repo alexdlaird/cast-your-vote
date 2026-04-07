@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -7,8 +9,7 @@ import 'package:equatable/equatable.dart';
 import 'package:logging/logging.dart';
 import 'package:cast_your_vote/core/storage_service.dart';
 import 'package:cast_your_vote/data/models/models.dart';
-import 'package:cast_your_vote/domain/repositories/event_repository.dart';
-import 'package:cast_your_vote/domain/repositories/ballot_repository.dart';
+import 'package:cast_your_vote/domain/repositories/repositories.dart';
 import 'package:cast_your_vote/domain/services/google_sheets_service.dart';
 
 final _log = Logger('admin_bloc');

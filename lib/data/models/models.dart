@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 export 'ballot_model.dart';
 export 'entry_model.dart';
 export 'event_model.dart';

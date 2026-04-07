@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Alex Laird. MIT License.
+
 import 'package:equatable/equatable.dart';
 
 class ParticipantModel extends Equatable {

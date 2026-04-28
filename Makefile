@@ -26,8 +26,12 @@ setup-admin:
 		echo "Admin whitelist set to: $$email"
 
 firebase-config:
-	dart pub global activate flutterfire_cli
-	flutterfire configure --project=$(PROJECT_ID) --yes
+	@read -p "Enter Firebase project ID: " project_id; \
+		python3 -c "import json; f='.firebaserc'; d=json.load(open(f)); d['projects']['default']='$$project_id'; json.dump(d,open(f,'w'),indent=2)" && \
+		python3 -c "import json; f='cors.json'; d=json.load(open(f)); d[0]['origin']=['https://$$project_id.web.app','https://$$project_id.firebaseapp.com']; json.dump(d,open(f,'w'),indent=2)" && \
+		dart pub global activate flutterfire_cli && \
+		flutterfire configure --project=$$project_id --yes && \
+		echo "Configured for project: $$project_id"
 
 build-web: install
 	flutter build web --release --source-maps --no-tree-shake-icons

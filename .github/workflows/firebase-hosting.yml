@@ -30,26 +30,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
+      - name: Test
+        run: make test
+
       - name: Build web
         run: make build-web
 
-      - name: Deploy Firestore and Storage rules
-        uses: w9jds/firebase-action@master
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          args: deploy --only firestore:rules,storage
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Apply Storage CORS
+      - name: Read project ID
+        id: project
+        run: echo "id=$(python3 -c "import json; print(json.load(open('.firebaserc'))['projects']['default'])")" >> $GITHUB_OUTPUT
+
+      - name: Deploy
+        run: make deploy
+
+      - name: Deployment summary
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/sa-key.json
-          gcloud auth activate-service-account --key-file=/tmp/sa-key.json
-          gsutil cors set cors.json gs://cast-your-vote-d3898.firebasestorage.app
-
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: cast-your-vote-d3898
+          echo "### Deployment Complete :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Project**: ${{ steps.project.outputs.id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ steps.project.outputs.id }}.web.app" >> $GITHUB_STEP_SUMMARY

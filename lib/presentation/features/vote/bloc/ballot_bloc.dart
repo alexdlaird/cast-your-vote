@@ -243,6 +243,8 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
     final currentState = state;
     if (currentState is! BallotLoaded) return;
 
+    final participantCount = currentState.event.participants.length;
+
     final allVotes = Map<String, Map<String, int>>.from(
       currentState.ballot.audienceVotes.map(
         (k, v) => MapEntry(k, Map<String, int>.from(v)),
@@ -254,8 +256,9 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
     if (event.rank == null) {
       roundVotes.remove(event.participantId);
     } else {
-      roundVotes.removeWhere((_, rank) => rank == event.rank);
-      roundVotes[event.participantId] = event.rank!;
+      final score = participantCount + 1 - event.rank!;
+      roundVotes.removeWhere((_, s) => s == score);
+      roundVotes[event.participantId] = score;
     }
 
     allVotes[event.roundId] = roundVotes;
@@ -396,22 +399,19 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
       final allVotes = Map<String, Map<String, int>>.from(
         ballot.audienceVotes.map((k, v) => MapEntry(k, Map<String, int>.from(v))),
       );
-      final participantCount = event.participants.length;
 
       for (final round in event.rounds) {
         final votes = Map<String, int>.from(allVotes[round.id] ?? {});
-        final usedRanks = votes.values.toSet();
-        var rank = participantCount;
+        final usedScores = votes.values.toSet();
+        var score = 1;
         for (final p in droppedOut) {
           if (!votes.containsKey(p.id)) {
-            while (usedRanks.contains(rank) && rank >= 1) {
-              rank--;
+            while (usedScores.contains(score)) {
+              score++;
             }
-            if (rank >= 1) {
-              votes[p.id] = rank;
-              usedRanks.add(rank);
-              rank--;
-            }
+            votes[p.id] = score;
+            usedScores.add(score);
+            score++;
           }
         }
         allVotes[round.id] = votes;
@@ -427,7 +427,11 @@ class BallotBloc extends Bloc<BallotEvent, BallotState> {
       for (final round in event.rounds) {
         final votes = Map<String, JudgeVote>.from(allVotes[round.id] ?? {});
         for (final p in droppedOut) {
-          votes[p.id] = const JudgeVote(singing: 1, performance: 1, songFit: 1);
+          votes[p.id] = JudgeVote(
+            scores: {
+              for (final c in event.judgeCategories) c.id: 1,
+            },
+          );
         }
         allVotes[round.id] = votes;
       }

@@ -172,12 +172,14 @@ class AdminDashboardView extends StatelessWidget {
           ],
           _buildBallotStatsCard(context, state),
           const SizedBox(height: 16),
-          _buildDonationWinnersCard(
-            context,
-            event,
-            isEditable: event.isVotingOpen && !state.isBusy,
-          ),
-          const SizedBox(height: 16),
+          if (event.scoringConfig.donationsEnabled) ...[
+            _buildDonationWinnersCard(
+              context,
+              event,
+              isEditable: event.isVotingOpen && !state.isBusy,
+            ),
+            const SizedBox(height: 16),
+          ],
           _buildActionsCard(context, state),
         ],
       ),
@@ -254,7 +256,7 @@ class AdminDashboardView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '${event.participantCount} Performers',
+              '${event.participantCount} Contestants',
               style: context.textTheme.bodyLarge,
             ),
             const SizedBox(height: 8),
@@ -268,6 +270,7 @@ class AdminDashboardView extends StatelessWidget {
                         (p) => _ParticipantChip(
                           participant: p,
                           isEditable: event.isVotingOpen && !state.isBusy,
+                          showDonationToggle: event.scoringConfig.donationsEnabled,
                           onDonationTap: () => context.read<AdminBloc>().add(
                             UpdateParticipantDonation(
                               participantId: p.id,
@@ -629,7 +632,7 @@ class AdminDashboardView extends StatelessWidget {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
-            hint: const Text('Select performer', overflow: TextOverflow.ellipsis),
+            hint: const Text('Select contestant', overflow: TextOverflow.ellipsis),
             items: participants
                 .map(
                   (p) => DropdownMenuItem<String>(
@@ -715,22 +718,23 @@ class AdminDashboardView extends StatelessWidget {
       return;
     }
 
-    // Validate bonus points are selected
-    final missingBonusPoints = <String>[];
-    if (event.largestDonationWinnerId == null) {
-      missingBonusPoints.add('Largest Donation');
-    }
-    if (event.mostDonationsWinnerId == null) {
-      missingBonusPoints.add('Most Donations');
-    }
+    if (event.scoringConfig.donationsEnabled) {
+      final missingBonusPoints = <String>[];
+      if (event.largestDonationWinnerId == null) {
+        missingBonusPoints.add('Largest Donation');
+      }
+      if (event.mostDonationsWinnerId == null) {
+        missingBonusPoints.add('Most Donations');
+      }
 
-    if (missingBonusPoints.isNotEmpty) {
-      SnackBarHelper.show(
-        context,
-        'Select ${missingBonusPoints.join(" and ")} before closing voting.',
-        type: SnackType.error,
-      );
-      return;
+      if (missingBonusPoints.isNotEmpty) {
+        SnackBarHelper.show(
+          context,
+          'Select ${missingBonusPoints.join(" and ")} before closing voting.',
+          type: SnackType.error,
+        );
+        return;
+      }
     }
 
     showDialog(
@@ -885,12 +889,14 @@ class AdminDashboardView extends StatelessWidget {
 class _ParticipantChip extends StatelessWidget {
   final ParticipantModel participant;
   final bool isEditable;
+  final bool showDonationToggle;
   final VoidCallback onDonationTap;
   final VoidCallback onDropoutTap;
 
   const _ParticipantChip({
     required this.participant,
     required this.isEditable,
+    this.showDonationToggle = true,
     required this.onDonationTap,
     required this.onDropoutTap,
   });
@@ -921,6 +927,7 @@ class _ParticipantChip extends StatelessWidget {
               color: isDroppedOut ? context.colorScheme.onSurfaceVariant : null,
             ),
           ),
+          if (showDonationToggle) ...[
           const SizedBox(width: 4),
           Opacity(
             opacity: isEditable ? 1.0 : 0.4,
@@ -948,11 +955,12 @@ class _ParticipantChip extends StatelessWidget {
               ),
             ),
           ),
+          ],
           Opacity(
             opacity: isEditable ? 1.0 : 0.4,
             child: Tooltip(
               message: isEditable
-                  ? (isDroppedOut ? 'Restore performer' : 'Mark as dropped out')
+                  ? (isDroppedOut ? 'Restore contestant' : 'Mark as dropped out')
                   : '',
               child: InkWell(
                 onTap: isEditable ? onDropoutTap : null,

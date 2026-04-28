@@ -68,7 +68,7 @@ class AppScaffold extends StatelessWidget {
                     label: 'Donate',
                   ),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.theater_comedy),
+                    icon: Icon(Icons.emoji_events),
                     label: 'Cast Your Vote!',
                   ),
                 ],

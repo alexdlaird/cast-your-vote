@@ -72,25 +72,21 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     }
   }
 
-  bool _canSubmit(Map<String, JudgeVote> votes, int participantCount) {
+  bool _canSubmit(Map<String, JudgeVote> votes, int participantCount, List<JudgeCategoryModel> categories) {
     if (votes.length != participantCount) return false;
     for (final vote in votes.values) {
-      if (!_isVoteComplete(vote)) {
-        return false;
-      }
+      if (!_isVoteComplete(vote, categories)) return false;
     }
     return true;
   }
 
-  bool _isVoteComplete(JudgeVote vote) {
-    return vote.singing != 0 && vote.performance != 0 && vote.songFit != 0;
+  bool _isVoteComplete(JudgeVote vote, List<JudgeCategoryModel> categories) {
+    return categories.every((c) => vote.score(c.id) != 0);
   }
 
-  bool _isVotePartial(JudgeVote vote) {
-    final filledCount = (vote.singing != 0 ? 1 : 0) +
-        (vote.performance != 0 ? 1 : 0) +
-        (vote.songFit != 0 ? 1 : 0);
-    return filledCount > 0 && filledCount < 3;
+  bool _isVotePartial(JudgeVote vote, List<JudgeCategoryModel> categories) {
+    final filledCount = categories.where((c) => vote.score(c.id) != 0).length;
+    return filledCount > 0 && filledCount < categories.length;
   }
 
   void _onRoundChanged(BallotLoaded state) {
@@ -236,7 +232,9 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       ..sort((a, b) => a.order.compareTo(b.order));
     final round = state.currentRound!;
     final votes = state.ballot.judgeVotesForRound(round.id);
-    final canSubmit = _canSubmit(votes, participants.length);
+    final categories = List<JudgeCategoryModel>.from(state.event.judgeCategories)
+      ..sort((a, b) => a.order.compareTo(b.order));
+    final canSubmit = _canSubmit(votes, participants.length, categories);
     final isLastParticipant = _currentParticipantIndex == participants.length - 1;
     final judgeName = state.ballot.judgeName;
     final isMultiRound = state.event.isMultiRound;
@@ -279,13 +277,14 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       ],
       body: Column(
         children: [
-          _buildProgressIndicator(context, participants.length, votes),
-          _buildParticipantPages(participants, votes, round),
+          _buildProgressIndicator(context, participants.length, votes, categories),
+          _buildParticipantPages(participants, votes, round, categories),
           _buildNavigationControls(
             context,
             state,
             participants,
             votes,
+            categories,
             canSubmit,
             isLastParticipant,
           ),
@@ -298,6 +297,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     BuildContext context,
     int participantCount,
     Map<String, JudgeVote> votes,
+    List<JudgeCategoryModel> categories,
   ) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -307,11 +307,11 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Performer ${_currentParticipantIndex + 1} of $participantCount',
+                'Contestant ${_currentParticipantIndex + 1} of $participantCount',
                 style: context.textTheme.bodySmall,
               ),
               Text(
-                '${votes.values.where(_isVoteComplete).length}/$participantCount scored',
+                '${votes.values.where((v) => _isVoteComplete(v, categories)).length}/$participantCount scored',
                 style: context.textTheme.bodySmall,
               ),
             ],
@@ -330,6 +330,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     List<ParticipantModel> participants,
     Map<String, JudgeVote> votes,
     RoundModel round,
+    List<JudgeCategoryModel> categories,
   ) {
     return Expanded(
       child: PageView.builder(
@@ -343,8 +344,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
         itemCount: participants.length,
         itemBuilder: (context, index) {
           final participant = participants[index];
-          final vote = votes[participant.id] ??
-              const JudgeVote(singing: 0, performance: 0, songFit: 0);
+          final vote = votes[participant.id] ?? const JudgeVote();
           final entryTitle = round.entryForParticipant(participant.id)?.title;
           return _buildParticipantPage(
             context,
@@ -352,6 +352,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
             vote,
             index,
             participants.length,
+            categories: categories,
             entryTitle: entryTitle,
           );
         },
@@ -364,6 +365,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     BallotLoaded state,
     List<ParticipantModel> participants,
     Map<String, JudgeVote> votes,
+    List<JudgeCategoryModel> categories,
     bool canSubmit,
     bool isLastParticipant,
   ) {
@@ -384,7 +386,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     } else if (isLastParticipant && isMultiRound && !isLastRound) {
       primaryButton = ElevatedButton(
         onPressed: canSubmit ? () => _confirmAdvanceRound(context, state) : null,
-        child: Text(canSubmit ? 'Submit & Continue' : 'Rank all performers to continue'),
+        child: Text(canSubmit ? 'Submit & Continue' : 'Score all contestants to continue'),
       );
     } else if (isLastParticipant) {
       // Last participant of the final round (or single-round) → "Submit"
@@ -392,7 +394,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
         onPressed: canSubmit
             ? () => context.read<BallotBloc>().add(const SubmitBallot())
             : null,
-        child: Text(canSubmit ? 'Submit All Votes' : 'Rank all performers to continue'),
+        child: Text(canSubmit ? 'Submit All Votes' : 'Score all contestants to continue'),
       );
     } else {
       primaryButton = ElevatedButton(
@@ -405,7 +407,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          _buildNavigationDots(context, participants, votes),
+          _buildNavigationDots(context, participants, votes, categories),
           const SizedBox(height: 16),
           primaryButton,
           if (_currentParticipantIndex > 0) ...[
@@ -424,6 +426,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     BuildContext context,
     List<ParticipantModel> participants,
     Map<String, JudgeVote> votes,
+    List<JudgeCategoryModel> categories,
   ) {
     return Wrap(
       alignment: WrapAlignment.center,
@@ -441,9 +444,9 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
                 : context.colorScheme.errorContainer;
           } else if (index == _currentParticipantIndex) {
             dotColor = context.colorScheme.primary;
-          } else if (vote != null && _isVoteComplete(vote)) {
+          } else if (vote != null && _isVoteComplete(vote, categories)) {
             dotColor = context.colorScheme.primaryContainer;
-          } else if (vote != null && _isVotePartial(vote)) {
+          } else if (vote != null && _isVotePartial(vote, categories)) {
             dotColor = context.colorScheme.tertiaryContainer;
           } else {
             dotColor = context.colorScheme.surfaceContainerHighest;
@@ -470,6 +473,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
     JudgeVote vote,
     int index,
     int total, {
+    required List<JudgeCategoryModel> categories,
     String? entryTitle,
   }) {
     if (participant.droppedOut) {
@@ -498,7 +502,7 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'This performer dropped out',
+                    'This contestant dropped out',
                     style: context.textTheme.bodyLarge,
                     textAlign: TextAlign.center,
                   ),
@@ -538,54 +542,25 @@ class _JudgeBallotViewState extends State<_JudgeBallotView> {
             child: Column(
               children: [
                 const SizedBox(height: 8),
-                _buildCategoryRow(
-                  context,
-                  label: 'Singing',
-                  icon: Icons.mic,
-                  value: vote.singing,
-                  comment: vote.singingComments,
-                  isCommentOpen: _openCommentCategory == 'singing',
-                  onCommentToggle: () => setState(() => _openCommentCategory =
-                      _openCommentCategory == 'singing' ? null : 'singing'),
-                  onScoreChanged: (v) => _updateVote(
-                      context, participant.id, vote.copyWith(singing: v)),
-                  onCommentSaved: (v) => _updateVote(context, participant.id,
-                      vote.copyWith(singingComments: v)),
-                ),
-                const SizedBox(height: 24),
-                _buildCategoryRow(
-                  context,
-                  label: 'Performance',
-                  icon: Icons.theater_comedy,
-                  value: vote.performance,
-                  comment: vote.performanceComments,
-                  isCommentOpen: _openCommentCategory == 'performance',
-                  onCommentToggle: () => setState(() => _openCommentCategory =
-                      _openCommentCategory == 'performance'
-                          ? null
-                          : 'performance'),
-                  onScoreChanged: (v) => _updateVote(
-                      context, participant.id, vote.copyWith(performance: v)),
-                  onCommentSaved: (v) => _updateVote(context, participant.id,
-                      vote.copyWith(performanceComments: v)),
-                ),
-                const SizedBox(height: 24),
-                _buildCategoryRow(
-                  context,
-                  label: 'Song Fit',
-                  icon: Icons.people,
-                  value: vote.songFit,
-                  comment: vote.songFitComments,
-                  isCommentOpen: _openCommentCategory == 'songFit',
-                  onCommentToggle: () => setState(() => _openCommentCategory =
-                      _openCommentCategory == 'songFit'
-                          ? null
-                          : 'songFit'),
-                  onScoreChanged: (v) => _updateVote(context, participant.id,
-                      vote.copyWith(songFit: v)),
-                  onCommentSaved: (v) => _updateVote(context, participant.id,
-                      vote.copyWith(songFitComments: v)),
-                ),
+                for (var i = 0; i < categories.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 24),
+                  _buildCategoryRow(
+                    context,
+                    label: categories[i].name,
+                    icon: Icons.check_circle_outline,
+                    value: vote.score(categories[i].id),
+                    comment: vote.comment(categories[i].id),
+                    isCommentOpen: _openCommentCategory == categories[i].id,
+                    onCommentToggle: () => setState(() => _openCommentCategory =
+                        _openCommentCategory == categories[i].id
+                            ? null
+                            : categories[i].id),
+                    onScoreChanged: (v) => _updateVote(
+                        context, participant.id, vote.withScore(categories[i].id, v)),
+                    onCommentSaved: (v) => _updateVote(
+                        context, participant.id, vote.withComment(categories[i].id, v)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -734,7 +709,7 @@ class _CategoryCommentFieldState extends State<_CategoryCommentField> {
       autofocus: true,
       maxLines: 2,
       decoration: const InputDecoration(
-        hintText: 'Optional comments for the performer ...',
+        hintText: 'Optional comments for the contestant ...',
         isDense: true,
       ),
     );

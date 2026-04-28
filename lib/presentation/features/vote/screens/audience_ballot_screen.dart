@@ -47,7 +47,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
 
     final votes = state.ballot.audienceVotesForRound(roundId);
     final ranked = active.where((p) => votes.containsKey(p.id)).toList()
-      ..sort((a, b) => votes[a.id]!.compareTo(votes[b.id]!));
+      ..sort((a, b) => votes[b.id]!.compareTo(votes[a.id]!));
     final unranked = active.where((p) => !votes.containsKey(p.id)).toList();
 
     setState(() {
@@ -353,7 +353,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
             ? () => _confirmAdvanceRound(context, state)
             : null,
         child: Text(
-          _unranked.isEmpty ? 'Submit & Continue' : 'Rank all performers to continue',
+          _unranked.isEmpty ? 'Submit & Continue' : 'Rank all contestants to continue',
         ),
       );
     }
@@ -369,7 +369,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : Text(
-              _unranked.isEmpty ? 'Submit All Votes' : 'Rank all performers to continue',
+              _unranked.isEmpty ? 'Submit All Votes' : 'Rank all contestants to continue',
             ),
     );
   }
@@ -456,7 +456,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'Drag performers here to rank',
+                    'Drag contestants here to rank',
                     style: ctx.textTheme.bodySmall?.copyWith(
                       color: ctx.colorScheme.onSurfaceVariant,
                     ),
@@ -763,7 +763,7 @@ class _AudienceBallotViewState extends State<_AudienceBallotView> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Reset Ballot?'),
         content: const Text(
-          'This will move all performers back to the unranked column.',
+          'This will move all contestants back to the unranked column.',
         ),
         actions: [
           Row(

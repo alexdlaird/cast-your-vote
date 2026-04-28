@@ -2,9 +2,11 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
+import 'package:cast_your_vote/data/models/judge_category_model.dart';
 import 'package:cast_your_vote/data/models/judge_model.dart';
 import 'package:cast_your_vote/data/models/participant_model.dart';
 import 'package:cast_your_vote/data/models/round_model.dart';
+import 'package:cast_your_vote/data/models/scoring_config_model.dart';
 import 'package:cast_your_vote/data/models/voting_results_model.dart';
 
 enum EventStatus { open, closed }
@@ -22,6 +24,8 @@ class EventModel extends Equatable {
   final String? logoUrl;
   final VotingResults? votingResults;
   final List<RoundModel> rounds;
+  final List<JudgeCategoryModel> judgeCategories;
+  final ScoringConfigModel scoringConfig;
 
   const EventModel({
     required this.id,
@@ -36,6 +40,8 @@ class EventModel extends Equatable {
     this.logoUrl,
     this.votingResults,
     this.rounds = const <RoundModel>[],
+    this.judgeCategories = const <JudgeCategoryModel>[],
+    this.scoringConfig = const ScoringConfigModel(),
   });
 
   factory EventModel.fromJson(Map<String, dynamic> json, String id) {
@@ -63,6 +69,14 @@ class EventModel extends Equatable {
         for (final r in (json['rounds'] as List<dynamic>?) ?? [])
           RoundModel.fromJson(r as Map<String, dynamic>),
       ],
+      judgeCategories: [
+        for (final c in (json['judgeCategories'] as List<dynamic>?) ?? [])
+          JudgeCategoryModel.fromJson(c as Map<String, dynamic>),
+      ],
+      scoringConfig: json['scoringConfig'] != null
+          ? ScoringConfigModel.fromJson(
+              json['scoringConfig'] as Map<String, dynamic>)
+          : const ScoringConfigModel(),
     );
   }
 
@@ -79,6 +93,8 @@ class EventModel extends Equatable {
       'logoUrl': logoUrl,
       'votingResults': votingResults?.toJson(),
       'rounds': rounds.map((r) => r.toJson()).toList(),
+      'judgeCategories': judgeCategories.map((c) => c.toJson()).toList(),
+      'scoringConfig': scoringConfig.toJson(),
     };
   }
 
@@ -101,6 +117,8 @@ class EventModel extends Equatable {
     String? logoUrl,
     VotingResults? votingResults,
     List<RoundModel>? rounds,
+    List<JudgeCategoryModel>? judgeCategories,
+    ScoringConfigModel? scoringConfig,
     bool clearLargestDonationWinner = false,
     bool clearMostDonationsWinner = false,
     bool clearVotingResults = false,
@@ -124,6 +142,8 @@ class EventModel extends Equatable {
           ? null
           : (votingResults ?? this.votingResults),
       rounds: rounds ?? this.rounds,
+      judgeCategories: judgeCategories ?? this.judgeCategories,
+      scoringConfig: scoringConfig ?? this.scoringConfig,
     );
   }
 
@@ -141,5 +161,7 @@ class EventModel extends Equatable {
         logoUrl,
         votingResults,
         rounds,
+        judgeCategories,
+        scoringConfig,
       ];
 }

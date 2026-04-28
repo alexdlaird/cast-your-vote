@@ -6,71 +6,61 @@ import 'package:equatable/equatable.dart';
 enum BallotType { audience, judge }
 
 class JudgeVote extends Equatable {
-  final int singing;
-  final int performance;
-  final int songFit;
-  final String singingComments;
-  final String performanceComments;
-  final String songFitComments;
+  final Map<String, int> scores;
+  final Map<String, String> comments;
 
   const JudgeVote({
-    required this.singing,
-    required this.performance,
-    required this.songFit,
-    this.singingComments = '',
-    this.performanceComments = '',
-    this.songFitComments = '',
+    this.scores = const {},
+    this.comments = const {},
   });
 
   factory JudgeVote.fromJson(Map<String, dynamic> json) {
-    return JudgeVote(
-      singing: json['singing'] as int,
-      performance: json['performance'] as int,
-      songFit: json['songFit'] as int,
-      singingComments: json['singingComments'] as String? ?? '',
-      performanceComments: json['performanceComments'] as String? ?? '',
-      songFitComments: json['songFitComments'] as String? ?? '',
-    );
+    final scores = <String, int>{};
+    final comments = <String, String>{};
+    for (final entry in json.entries) {
+      if (entry.key.endsWith('Comments')) {
+        final categoryId = entry.key.substring(0, entry.key.length - 'Comments'.length);
+        if (entry.value is String) {
+          comments[categoryId] = entry.value as String;
+        }
+      } else if (entry.value is int) {
+        scores[entry.key] = entry.value as int;
+      }
+    }
+    return JudgeVote(scores: scores, comments: comments);
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'singing': singing,
-      'performance': performance,
-      'songFit': songFit,
-      'singingComments': singingComments,
-      'performanceComments': performanceComments,
-      'songFitComments': songFitComments,
-    };
+    final json = <String, dynamic>{};
+    for (final entry in scores.entries) {
+      json[entry.key] = entry.value;
+    }
+    for (final entry in comments.entries) {
+      json['${entry.key}Comments'] = entry.value;
+    }
+    return json;
   }
 
-  JudgeVote copyWith({
-    int? singing,
-    int? performance,
-    int? songFit,
-    String? singingComments,
-    String? performanceComments,
-    String? songFitComments,
-  }) {
+  int score(String categoryId) => scores[categoryId] ?? 0;
+
+  String comment(String categoryId) => comments[categoryId] ?? '';
+
+  JudgeVote withScore(String categoryId, int value) {
     return JudgeVote(
-      singing: singing ?? this.singing,
-      performance: performance ?? this.performance,
-      songFit: songFit ?? this.songFit,
-      singingComments: singingComments ?? this.singingComments,
-      performanceComments: performanceComments ?? this.performanceComments,
-      songFitComments: songFitComments ?? this.songFitComments,
+      scores: {...scores}..update(categoryId, (_) => value, ifAbsent: () => value),
+      comments: Map.of(comments),
+    );
+  }
+
+  JudgeVote withComment(String categoryId, String value) {
+    return JudgeVote(
+      scores: Map.of(scores),
+      comments: {...comments}..update(categoryId, (_) => value, ifAbsent: () => value),
     );
   }
 
   @override
-  List<Object?> get props => [
-        singing,
-        performance,
-        songFit,
-        singingComments,
-        performanceComments,
-        songFitComments,
-      ];
+  List<Object?> get props => [scores, comments];
 }
 
 /// Votes are keyed by round ID then participant ID.

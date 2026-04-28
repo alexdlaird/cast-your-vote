@@ -3,7 +3,9 @@
 export 'ballot_model.dart';
 export 'entry_model.dart';
 export 'event_model.dart';
+export 'judge_category_model.dart';
 export 'judge_model.dart';
 export 'participant_model.dart';
 export 'round_model.dart';
+export 'scoring_config_model.dart';
 export 'voting_results_model.dart';

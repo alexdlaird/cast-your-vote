@@ -16,9 +16,11 @@ class CreateEventScreen extends StatefulWidget {
   final String? previousEventName;
   final List<ParticipantModel>? previousParticipants;
   final List<JudgeModel>? previousJudges;
+  final List<JudgeCategoryModel>? previousJudgeCategories;
   final int? previousAudienceCount;
   final String? previousLogoUrl;
   final List<RoundModel> previousRounds;
+  final ScoringConfigModel? previousScoringConfig;
 
   const CreateEventScreen({
     super.key,
@@ -27,9 +29,11 @@ class CreateEventScreen extends StatefulWidget {
     this.previousEventName,
     this.previousParticipants,
     this.previousJudges,
+    this.previousJudgeCategories,
     this.previousAudienceCount,
     this.previousLogoUrl,
     this.previousRounds = const [],
+    this.previousScoringConfig,
   });
 
   @override
@@ -47,6 +51,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final List<TextEditingController> _participantControllers = [];
   final List<FocusNode> _participantFocusNodes = [];
   final List<String?> _participantIds = [];
+  final List<TextEditingController> _categoryControllers = [];
+  final List<FocusNode> _categoryFocusNodes = [];
+  final List<String?> _categoryIds = [];
 
   Uint8List? _logoBytes;
   String? _logoMimeType;
@@ -76,7 +83,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       text: widget.previousEventName ?? 'Cast Your Vote!',
     );
     _audienceCountController = TextEditingController(
-      text: (widget.previousAudienceCount ?? 100).toString(),
+      text: (widget.previousAudienceCount ?? 30).toString(),
     );
 
     // Initialize judges
@@ -98,6 +105,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       }
     }
 
+    // Initialize judge categories
+    if (widget.previousJudgeCategories != null) {
+      for (final category in widget.previousJudgeCategories!) {
+        _categoryControllers.add(TextEditingController(text: category.name));
+        _categoryFocusNodes.add(FocusNode());
+        _categoryIds.add(category.id.isEmpty ? null : category.id);
+      }
+    } else if (_judgeControllers.isNotEmpty) {
+      for (int i = 0; i < 3; i++) {
+        _categoryControllers.add(TextEditingController());
+        _categoryFocusNodes.add(FocusNode());
+        _categoryIds.add(null);
+      }
+    }
+
     // Initialize participants (router handles shuffle vs. ordered)
     if (widget.previousParticipants != null &&
         widget.previousParticipants!.isNotEmpty) {
@@ -114,6 +136,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _participantIds.add(null);
       }
     }
+
   }
 
   @override
@@ -124,6 +147,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       controller.dispose();
     }
     for (final node in _judgeFocusNodes) {
+      node.dispose();
+    }
+    for (final controller in _categoryControllers) {
+      controller.dispose();
+    }
+    for (final node in _categoryFocusNodes) {
       node.dispose();
     }
     for (final controller in _participantControllers) {
@@ -141,6 +170,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       _judgeFocusNodes.add(FocusNode());
       _judgeWeights.add(5);
       _judgeIds.add(null);
+      if (_categoryControllers.isEmpty) {
+        _categoryControllers.add(TextEditingController());
+        _categoryFocusNodes.add(FocusNode());
+        _categoryIds.add(null);
+      }
     });
   }
 
@@ -153,6 +187,26 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _judgeFocusNodes.removeAt(index);
         _judgeWeights.removeAt(index);
         _judgeIds.removeAt(index);
+      });
+    }
+  }
+
+  void _addCategoryField() {
+    setState(() {
+      _categoryControllers.add(TextEditingController());
+      _categoryFocusNodes.add(FocusNode());
+      _categoryIds.add(null);
+    });
+  }
+
+  void _removeCategoryField(int index) {
+    if (_categoryControllers.length > 1) {
+      setState(() {
+        _categoryControllers[index].dispose();
+        _categoryControllers.removeAt(index);
+        _categoryFocusNodes[index].dispose();
+        _categoryFocusNodes.removeAt(index);
+        _categoryIds.removeAt(index);
       });
     }
   }
@@ -201,6 +255,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     });
   }
 
+  bool get _hasJudges => _judgeControllers.isNotEmpty;
+
   void _goToRounds() {
     if (!_formKey.currentState!.validate()) return;
 
@@ -212,6 +268,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           weight: _judgeWeights[i],
         ),
     ];
+
+    final judgeCategories = _hasJudges
+        ? [
+            for (int i = 0; i < _categoryControllers.length; i++)
+              JudgeCategoryModel(
+                id: _categoryIds[i] ?? 'c${i + 1}',
+                name: _categoryControllers[i].text.trim(),
+                order: i + 1,
+              ),
+          ]
+        : <JudgeCategoryModel>[];
 
     final participants = [
       for (int i = 0; i < _participantControllers.length; i++)
@@ -230,6 +297,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             name: _eventNameController.text.trim(),
             participants: participants,
             judges: judges,
+            judgeCategories: judgeCategories,
             rounds: widget.previousRounds,
             audienceBallotCount: int.parse(_audienceCountController.text),
             logoBytes: _logoBytes,
@@ -244,6 +312,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             participantNames: participants.map((p) => p.name).toList(),
             audienceBallotCount: int.parse(_audienceCountController.text),
             judges: judges,
+            judgeCategories: judgeCategories,
+            scoringConfig: widget.previousScoringConfig ?? const ScoringConfigModel(),
             rounds: const [],
             previousLogoUrl: widget.previousLogoUrl,
             logoBytes: _logoBytes,
@@ -365,6 +435,49 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     );
   }
 
+  Widget _buildCategoriesList() {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _categoryControllers.length,
+      itemBuilder: (context, index) => _buildCategoryRow(context, index),
+    );
+  }
+
+  Widget _buildCategoryRow(BuildContext context, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: _categoryControllers[index],
+              focusNode: _categoryFocusNodes[index],
+              decoration: InputDecoration(
+                hintText: 'Category ${index + 1} name',
+                isDense: true,
+              ),
+              validator: (value) =>
+                  value == null || value.trim().isEmpty ? 'Required' : null,
+              onFieldSubmitted: (_) {
+                if (index < _categoryFocusNodes.length - 1) {
+                  _categoryFocusNodes[index + 1].requestFocus();
+                }
+              },
+            ),
+          ),
+          IconButton(
+            onPressed: () => _removeCategoryField(index),
+            icon: const Icon(Icons.delete_outline),
+            color: context.colorScheme.error,
+            tooltip: 'Remove category',
+            focusNode: FocusNode(skipTraversal: true),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildParticipantsList() {
     return ReorderableListView.builder(
       shrinkWrap: true,
@@ -425,7 +538,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
               controller: _participantControllers[index],
               focusNode: _participantFocusNodes[index],
               decoration: InputDecoration(
-                hintText: 'Performer ${index + 1} name',
+                hintText: 'Contestant ${index + 1} name',
                 isDense: true,
               ),
               validator: (value) =>
@@ -441,7 +554,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             onPressed: () => _removeParticipantField(index),
             icon: const Icon(Icons.delete_outline),
             color: context.colorScheme.error,
-            tooltip: 'Remove performer',
+            tooltip: 'Remove contestant',
             focusNode: FocusNode(skipTraversal: true),
           ),
         ],
@@ -571,19 +684,40 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildJudgesList(),
+                  if (_hasJudges) ...[
                   const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Performers (in order of performance)',
+                        'Judge Scoring Categories',
+                        style: context.textTheme.titleMedium,
+                      ),
+                      IconButton(
+                        onPressed: _addCategoryField,
+                        icon: const Icon(Icons.add_circle),
+                        color: context.colorScheme.primary,
+                        tooltip: 'Add category',
+                        focusNode: FocusNode(skipTraversal: true),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildCategoriesList(),
+                  ],
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Contestants (in order of appearance)',
                         style: context.textTheme.titleMedium,
                       ),
                       IconButton(
                         onPressed: _addParticipantField,
                         icon: const Icon(Icons.add_circle),
                         color: context.colorScheme.primary,
-                        tooltip: 'Add performer',
+                        tooltip: 'Add contestant',
                         focusNode: FocusNode(skipTraversal: true),
                       ),
                     ],

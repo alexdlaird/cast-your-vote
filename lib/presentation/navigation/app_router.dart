@@ -103,7 +103,7 @@ class AppRouter {
                           List<ParticipantModel>.from(currentEvent.participants)
                             ..sort((a, b) => a.order.compareTo(b.order));
                     } else {
-                      // Create new: exclude eliminated performer, shuffle
+                      // Create new: exclude eliminated contestant, shuffle
                       // order, and reset IDs so new records are created.
                       final eliminatedId =
                           adminState.votingResults?.eliminatedParticipantId;
@@ -129,9 +129,11 @@ class AppRouter {
                     previousEventName: currentEvent?.name,
                     previousParticipants: previousParticipants,
                     previousJudges: currentEvent?.judges,
-                    previousAudienceCount: adminState.audienceBallotCount,
+                    previousJudgeCategories: currentEvent?.judgeCategories,
+                    previousAudienceCount: currentEvent != null ? adminState.audienceBallotCount : null,
                     previousLogoUrl: currentEvent?.logoUrl,
                     previousRounds: isEditMode ? currentEvent.rounds : const [],
+                    previousScoringConfig: currentEvent?.scoringConfig,
                   );
                 },
               );

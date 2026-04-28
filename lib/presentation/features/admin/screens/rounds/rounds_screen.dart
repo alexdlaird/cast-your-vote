@@ -5,6 +5,7 @@ import 'package:cast_your_vote/data/models/models.dart';
 import 'package:cast_your_vote/presentation/features/admin/bloc/admin_bloc.dart';
 import 'package:cast_your_vote/presentation/ui/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -24,6 +25,14 @@ class _RoundsScreenState extends State<RoundsScreen> {
   late List<List<TextEditingController>> _roundEntries;
   int _roundCount = 1;
 
+  late bool _donationsEnabled;
+  late final TextEditingController _donationBonusController;
+  late final TextEditingController _highestDonationBonusController;
+  late final TextEditingController _mostDonationsBonusController;
+  late final TextEditingController _audienceScoreMultiplierController;
+  late final TextEditingController _judgeScoreMultiplierController;
+  late bool _hasJudges;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +42,20 @@ class _RoundsScreenState extends State<RoundsScreen> {
   void _initRounds() {
     final adminState = context.read<AdminBloc>().state;
     final event = adminState is AdminLoaded ? adminState.currentEvent : null;
+
+    final config = event?.scoringConfig ?? const ScoringConfigModel();
+    _donationsEnabled = config.donationsEnabled;
+    _donationBonusController =
+        TextEditingController(text: config.donationBonus.toString());
+    _highestDonationBonusController =
+        TextEditingController(text: config.highestDonationBonus.toString());
+    _mostDonationsBonusController =
+        TextEditingController(text: config.mostDonationsBonus.toString());
+    _audienceScoreMultiplierController =
+        TextEditingController(text: config.audienceScoreMultiplier.toString());
+    _judgeScoreMultiplierController =
+        TextEditingController(text: config.judgeScoreMultiplier.toString());
+    _hasJudges = event?.judges.isNotEmpty ?? false;
 
     _participants = List<ParticipantModel>.from(event?.participants ?? [])
       ..sort((a, b) => a.order.compareTo(b.order));
@@ -56,6 +79,11 @@ class _RoundsScreenState extends State<RoundsScreen> {
         controller.dispose();
       }
     }
+    _donationBonusController.dispose();
+    _highestDonationBonusController.dispose();
+    _mostDonationsBonusController.dispose();
+    _audienceScoreMultiplierController.dispose();
+    _judgeScoreMultiplierController.dispose();
     super.dispose();
   }
 
@@ -101,6 +129,22 @@ class _RoundsScreenState extends State<RoundsScreen> {
     });
   }
 
+  ScoringConfigModel _buildScoringConfig() {
+    return ScoringConfigModel(
+      donationsEnabled: _donationsEnabled,
+      donationBonus:
+          double.tryParse(_donationBonusController.text) ?? 0.5,
+      highestDonationBonus:
+          double.tryParse(_highestDonationBonusController.text) ?? 0.25,
+      mostDonationsBonus:
+          double.tryParse(_mostDonationsBonusController.text) ?? 0.25,
+      audienceScoreMultiplier:
+          int.tryParse(_audienceScoreMultiplierController.text) ?? 1,
+      judgeScoreMultiplier:
+          int.tryParse(_judgeScoreMultiplierController.text) ?? 3,
+    );
+  }
+
   void _submit() {
     if (!_validate()) return;
 
@@ -115,6 +159,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
         participants: event.participants,
         judges: event.judges,
         rounds: _buildRounds(),
+        scoringConfig: _buildScoringConfig(),
         audienceBallotCount: adminState.audienceBallotCount,
       ),
     );
@@ -128,7 +173,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
         : null;
     return Title(
       color: Theme.of(context).primaryColor,
-      title: eventName != null ? 'Edit Rounds | $eventName' : 'Edit Rounds',
+      title: eventName != null ? 'Edit Rounds & Scoring | $eventName' : 'Edit Rounds & Scoring',
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -137,7 +182,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                 context.go('${AppRoutes.adminCreateEvent}?edit=true'),
           ),
           titleSpacing: 0,
-          title: const Text('Edit Rounds'),
+          title: const Text('Edit Rounds & Scoring'),
         ),
         body: BlocListener<AdminBloc, AdminState>(
           listenWhen: (previous, current) {
@@ -185,6 +230,8 @@ class _RoundsScreenState extends State<RoundsScreen> {
                   ],
                 ],
               ),
+              const SizedBox(height: 32),
+              _buildScoringSection(context),
               const SizedBox(height: 32),
               BlocBuilder<AdminBloc, AdminState>(
                 builder: (context, state) {
@@ -234,7 +281,7 @@ class _RoundsScreenState extends State<RoundsScreen> {
                   child: TextFormField(
                     controller: _roundEntries[roundIndex][pi],
                     decoration: const InputDecoration(
-                      hintText: 'Song title',
+                      hintText: 'Entry title',
                       isDense: true,
                     ),
                     validator: (value) {
@@ -249,6 +296,82 @@ class _RoundsScreenState extends State<RoundsScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildScoringSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Scoring', style: context.textTheme.titleMedium),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Enable Donation Bonuses'),
+          value: _donationsEnabled,
+          onChanged: (v) => setState(() => _donationsEnabled = v),
+        ),
+        if (_donationsEnabled) ...[
+          const SizedBox(height: 8),
+          _buildScoringField(
+            controller: _donationBonusController,
+            label: 'Donation Points',
+            decimal: true,
+          ),
+          const SizedBox(height: 12),
+          _buildScoringField(
+            controller: _highestDonationBonusController,
+            label: 'Largest Donation Bonus',
+            decimal: true,
+          ),
+          const SizedBox(height: 12),
+          _buildScoringField(
+            controller: _mostDonationsBonusController,
+            label: 'Most Donations Bonus',
+            decimal: true,
+          ),
+        ],
+        if (_hasJudges) ...[
+        const SizedBox(height: 12),
+        _buildScoringField(
+          controller: _audienceScoreMultiplierController,
+          label: 'Audience Score Multiplier',
+        ),
+        const SizedBox(height: 12),
+        _buildScoringField(
+          controller: _judgeScoreMultiplierController,
+          label: 'Judge Score Multiplier',
+        ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildScoringField({
+    required TextEditingController controller,
+    required String label,
+    bool decimal = false,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+      inputFormatters: decimal
+          ? [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))]
+          : [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Required';
+        if (decimal) {
+          if (double.tryParse(value) == null) return 'Invalid number';
+        } else {
+          final n = int.tryParse(value);
+          if (n == null || n < 1) return 'Must be at least 1';
+        }
+        return null;
+      },
     );
   }
 }

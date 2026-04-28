@@ -1,23 +1,19 @@
 # Cast Your Vote!
 
-A voting app for a round-based singing competition, with audience & judge ballot generation, Google Sheets results
-export, and event-based eliminations.
+A voting app for a round-based competition where the audience (and an optional panel of judges) can cast their votes
+from their phones.
 
 ## Prerequisites
 
 - Dart & Flutter
-- Firebase (for one-click deployment)
+- Firebase
 
 ## Getting Started
 
 To run a development version of the app for `web`:
 
 ```sh
-# Terminal 1: Start the Firebase emulators
-firebase emulators:start
-
-# Terminal 2: Run the app
-flutter run -d chrome
+make start
 ```
 
 The app automatically connects to the local emulators in debug mode.

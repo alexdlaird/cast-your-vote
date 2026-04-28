@@ -58,7 +58,10 @@ class CreateEvent extends AdminEvent {
   final int audienceBallotCount;
   final List<JudgeModel> judges;
   final List<RoundModel> rounds;
+  final List<JudgeCategoryModel> judgeCategories;
+  final ScoringConfigModel scoringConfig;
   final String? previousLogoUrl;
+
   final Uint8List? logoBytes;
   final String? logoMimeType;
   final String? logoFileName;
@@ -69,6 +72,8 @@ class CreateEvent extends AdminEvent {
     required this.audienceBallotCount,
     required this.judges,
     required this.rounds,
+    required this.judgeCategories,
+    this.scoringConfig = const ScoringConfigModel(),
     this.previousLogoUrl,
     this.logoBytes,
     this.logoMimeType,
@@ -77,7 +82,7 @@ class CreateEvent extends AdminEvent {
 
   @override
   List<Object?> get props =>
-      [name, participantNames, audienceBallotCount, judges, rounds, previousLogoUrl];
+      [name, participantNames, audienceBallotCount, judges, rounds, judgeCategories, scoringConfig, previousLogoUrl];
 }
 
 class UpdateParticipantDonation extends AdminEvent {
@@ -99,6 +104,8 @@ class UpdateEvent extends AdminEvent {
   final List<ParticipantModel> participants;
   final List<JudgeModel> judges;
   final List<RoundModel> rounds;
+  final List<JudgeCategoryModel>? judgeCategories;
+  final ScoringConfigModel? scoringConfig;
   final int audienceBallotCount;
   final Uint8List? logoBytes;
   final String? logoMimeType;
@@ -110,6 +117,8 @@ class UpdateEvent extends AdminEvent {
     required this.participants,
     required this.judges,
     required this.rounds,
+    this.judgeCategories,
+    this.scoringConfig,
     required this.audienceBallotCount,
     this.logoBytes,
     this.logoMimeType,
@@ -117,7 +126,7 @@ class UpdateEvent extends AdminEvent {
   });
 
   @override
-  List<Object?> get props => [eventId, name, participants, judges, rounds, audienceBallotCount];
+  List<Object?> get props => [eventId, name, participants, judges, rounds, judgeCategories, scoringConfig, audienceBallotCount];
 }
 
 class UpdateParticipantDropout extends AdminEvent {
@@ -411,6 +420,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
           createdAt: DateTime.now(),
           logoUrl: event.previousLogoUrl,
           rounds: rounds,
+          judgeCategories: event.judgeCategories,
+          scoringConfig: event.scoringConfig,
         ),
       );
 
@@ -514,6 +525,8 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
         judges: updatedJudges,
         logoUrl: logoUrl,
         rounds: event.rounds,
+        judgeCategories: event.judgeCategories,
+        scoringConfig: event.scoringConfig,
       );
       await _eventRepository.updateEvent(updatedEvent);
 

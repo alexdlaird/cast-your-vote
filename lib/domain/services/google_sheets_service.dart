@@ -6,11 +6,11 @@ import 'package:cast_your_vote/data/models/models.dart';
 /// Scores are intentionally omitted — ranking order and tie detection
 /// are computed from the spreadsheet formulas and discarded after use.
 class FetchedRankings {
-  /// Performer names in ranked order (best → worst).
+  /// Contestant names in ranked order (best → worst).
   final List<String> rankedNames;
 
-  /// Names of last-place performers if they tied; empty when there is a
-  /// single clear last-place performer.
+  /// Names of last-place contestants if they tied; empty when there is a
+  /// single clear last-place contestant.
   final List<String> tiedNames;
 
   const FetchedRankings({

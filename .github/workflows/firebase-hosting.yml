@@ -30,11 +30,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pub-
 
-      - name: Install dependencies
-        run: flutter pub get
-
       - name: Build web
-        run: flutter build web --release
+        run: make build-web
 
       - name: Deploy Firestore and Storage rules
         uses: w9jds/firebase-action@master

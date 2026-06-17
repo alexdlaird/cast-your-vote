@@ -17,13 +17,24 @@ test: install
 	flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
 	flutter test --no-pub
 
+# Whitelist an admin Google account. Prompts for the target (local emulator or the deployed
+# project) and the email, then PATCHes /config/admins. Locally the emulator's `owner` bearer
+# bypasses rules; for deployed it uses your Firebase CLI access token (admin), which bypasses
+# rules on live Firestore. Sets the doc to the single address provided.
 setup-admin:
-	@read -p "Enter admin email: " email; \
-		curl -s -X PATCH "http://localhost:8080/v1/projects/$(PROJECT_ID)/databases/(default)/documents/config/admins" \
-			-H "Content-Type: application/json" \
-			-H "Authorization: Bearer owner" \
-			-d "{\"fields\": {\"emails\": {\"arrayValue\": {\"values\": [{\"stringValue\": \"$$email\"}]}}}}" > /dev/null && \
-		echo "Admin whitelist set to: $$email"
+	@read -p "Target [local/deployed]: " target; \
+		read -p "Enter admin email: " email; \
+		if [ "$$target" = "deployed" ]; then \
+			host="https://firestore.googleapis.com"; \
+			firebase projects:list >/dev/null 2>&1; \
+			token=$$(python3 -c "import json,os; print(json.load(open(os.path.expanduser('~/.config/configstore/firebase-tools.json')))['tokens']['access_token'])"); \
+		else \
+			host="http://localhost:8080"; token="owner"; \
+		fi; \
+		curl -s -o /dev/null -w "HTTP %{http_code}\n" -X PATCH "$$host/v1/projects/$(PROJECT_ID)/databases/(default)/documents/config/admins" \
+			-H "Content-Type: application/json" -H "Authorization: Bearer $$token" \
+			-d "{\"fields\": {\"emails\": {\"arrayValue\": {\"values\": [{\"stringValue\": \"$$email\"}]}}}}" && \
+		echo "Admin whitelist set to: $$email ($$target)"
 
 firebase-config:
 	@read -p "Enter Firebase project ID: " project_id; \

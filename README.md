@@ -26,13 +26,18 @@ This starts the necessary Firebase emulators and runs the Flutter web app at
 - **Emulator UI:** [http://localhost:4000](http://localhost:4000) (view/edit Firestore & Storage data)
 - **App:** [http://localhost:5050](http://localhost:5050)
 
-### Admin Setup (Local)
+### Admin Whitelist
 
 Navigate to `/admin` to access the admin area. Provision the admin whitelist with:
 
 ```sh
 make setup-admin
 ```
+
+This prompts for the **target** (`local` emulator or `deployed` live project) and an
+**email**. `local` writes to the running emulator (the `owner` bearer bypasses rules);
+`deployed` writes to live Firestore using your Firebase CLI access token (admin, bypasses
+rules) — so be logged in (`firebase login`).
 
 ## Deploy Your Own
 
@@ -88,6 +93,7 @@ Push to `main` and the workflow will automatically deploy the project to your ne
 
 ### 6. Set Up Admin Whitelist
 
-In Firebase Console, go to Firestore and create a document at `/config/admins` with an `emails` field (array of
-strings) containing the email addresses of your admin users. Then you'll be able to access the admin area from your
-live Firebase site by navigating to `/admin`.
+Whitelist your admin accounts with `make setup-admin`, choosing `deployed` at the prompt — or
+create the `/config/admins` document (with an `emails` string array) directly in the Firebase
+Console. Then you'll be able to access the admin area from your live Firebase site by
+navigating to `/admin`.

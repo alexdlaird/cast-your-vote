@@ -54,7 +54,7 @@ start: install
 		sleep 3 && flutter run -d chrome --web-port=5050; \
 		wait
 
-deploy: build-web
+deploy:
 	firebase deploy --project=$(PROJECT_ID)
 
 # One-time per environment. Set Storage CORS policy (allowed origins in cors.json).

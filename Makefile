@@ -1,4 +1,4 @@
-.PHONY: all install clean test build-web deploy firebase-config setup-admin start
+.PHONY: all install clean test build-web deploy storage-cors firebase-config setup-admin start
 
 SHELL := /usr/bin/env bash
 
@@ -56,4 +56,7 @@ start: install
 
 deploy: build-web
 	firebase deploy --project=$(PROJECT_ID)
+
+# One-time per environment. Set Storage CORS policy (allowed origins in cors.json).
+storage-cors:
 	gsutil cors set cors.json gs://$(STORAGE_BUCKET)

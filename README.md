@@ -87,11 +87,21 @@ The GitHub Actions workflow auto-deploys anytime you push to `main`, or you can 
 3. In your GitHub repo, go to **Settings > Secrets and variables > Actions**
 4. Add a secret named `FIREBASE_SERVICE_ACCOUNT` with the contents of the JSON key file
 
-### 5. Deploy
+### 5. One-Time Environment Setup
+
+Before the first deploy, set the Storage CORS policy (owner privileges, runs once per environment):
+
+```sh
+make storage-cors
+```
+
+Re-run only if you change the allowed origins in `cors.json`.
+
+### 6. Deploy
 
 Push to `main` and the workflow will automatically deploy the project to your newly configured Firebase project.
 
-### 6. Set Up Admin Whitelist
+### 7. Set Up Admin Whitelist
 
 Whitelist your admin accounts with `make setup-admin`, choosing `deployed` at the prompt — or
 create the `/config/admins` document (with an `emails` string array) directly in the Firebase

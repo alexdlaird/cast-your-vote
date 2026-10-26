@@ -28,6 +28,10 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [
       {
+        "source": "**",
+        "headers": [{"key": "X-Muppets", "value": "42"}]
+      },
+      {
         "source": "/index.html",
         "headers": [{"key": "Cache-Control", "value": "no-cache"}]
       },

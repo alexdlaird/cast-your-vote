@@ -29,7 +29,7 @@
     "headers": [
       {
         "source": "**",
-        "headers": [{"key": "X-Muppets", "value": "42"}]
+        "headers": [{"key": "X-Muppets", "value": "no strings attached"}]
       },
       {
         "source": "/index.html",
